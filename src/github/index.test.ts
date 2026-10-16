@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type GhRunner, listQueuedIssues } from "./index";
+import { type GhRunner, listQueuedIssues, listRunningIssues } from "./index";
 import type { GhIssue } from "./test-fixtures";
 
 function issue(partial: GhIssue): GhIssue {
@@ -9,6 +9,54 @@ function issue(partial: GhIssue): GhIssue {
     labels: [{ name: "agent:queued" }],
     assignee: { login: "octocat" },
     ...partial,
+  };
+}
+
+function runningIssue(partial: GhIssue): GhIssue {
+  return {
+    title: "",
+    body: "",
+    labels: [{ name: "agent:running" }],
+    assignee: { login: "octocat" },
+    ...partial,
+  };
+}
+
+type IssueComments = Record<number, { body: string }[]>;
+
+function commentsForPath(path: string, commentsByIssue: IssueComments): string | undefined {
+  if (!path.includes("/comments")) {
+    return undefined;
+  }
+  const match = path.match(/\/issues\/(\d+)\/comments$/);
+  const issueNumber = match ? Number(match[1]) : NaN;
+  const comments = commentsByIssue[issueNumber] ?? [];
+  return JSON.stringify(comments);
+}
+
+function listRunningRunner(
+  issues: GhIssue[],
+  commentsByIssue: IssueComments = {},
+  failList = false,
+): GhRunner {
+  return async (argv) => {
+    expect(argv[0]).toBe("api");
+    const path = argv[2];
+    if (path === undefined) {
+      return { ok: false };
+    }
+    const commentsJson = commentsForPath(path, commentsByIssue);
+    if (commentsJson !== undefined) {
+      return { ok: true, stdout: commentsJson };
+    }
+    if (path === "repos/example/app/issues") {
+      if (failList) {
+        return { ok: false };
+      }
+      expect(argv).toContain("labels=agent:running");
+      return { ok: true, stdout: JSON.stringify(issues) };
+    }
+    return { ok: false };
   };
 }
 
@@ -159,5 +207,48 @@ describe("listQueuedIssues fields", () => {
       issue({ number: 16, assignee: null }),
     ]);
     expect(result).toEqual({ ok: true, issues: [] });
+  });
+});
+
+describe("listRunningIssues", () => {
+  test("returns only octocat running issue 8", async () => {
+    const ghResponse = [
+      runningIssue({ number: 8 }),
+      runningIssue({ number: 9, assignee: { login: "hubot" } }),
+    ];
+    const result = await listRunningIssues("example/app", "octocat", {
+      run: listRunningRunner(ghResponse),
+      writeStderr: () => {},
+    });
+    expect(result).toEqual({ ok: true, issues: [{ number: 8, hasRunId: false }] });
+  });
+
+  test("hasRunId is true when comment body is lowercase uuid", async () => {
+    const runId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const result = await listRunningIssues("example/app", "octocat", {
+      run: listRunningRunner([runningIssue({ number: 8 })], {
+        8: [{ body: runId }],
+      }),
+      writeStderr: () => {},
+    });
+    expect(result).toEqual({ ok: true, issues: [{ number: 8, hasRunId: true }] });
+  });
+
+  test("hasRunId is false when there are no comments", async () => {
+    const result = await listRunningIssues("example/app", "octocat", {
+      run: listRunningRunner([runningIssue({ number: 8 })], {}),
+      writeStderr: () => {},
+    });
+    expect(result).toEqual({ ok: true, issues: [{ number: 8, hasRunId: false }] });
+  });
+
+  test("reports list failure on stderr", async () => {
+    const stderr: string[] = [];
+    const result = await listRunningIssues("example/app", "octocat", {
+      run: listRunningRunner([runningIssue({ number: 8 })], {}, true),
+      writeStderr: (line) => stderr.push(line),
+    });
+    expect(result).toEqual({ ok: false });
+    expect(stderr).toEqual(["issue の列挙に失敗しました\n"]);
   });
 });

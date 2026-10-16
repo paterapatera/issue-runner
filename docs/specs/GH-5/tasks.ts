@@ -20,7 +20,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/github/index.test.ts に listRunningIssues のテストを足す。assignee が octocat の issue 8 だけが返り、別の担当者の running は返らないことを観測する。コメント本文が小文字の UUID のとき hasRunId が true、コメントが無いとき false であることを観測する。gh が失敗したとき ok: false で、標準エラーが issue の列挙に失敗しましたであることを観測する。テストから品質ゲート、docker、依存関係の導入は呼ばない。",
       refs: ["FR-004", "IssueLabels"],
-      status: "todo",
+      status: "doing",
     },
     "T-003": {
       title: "sdd-impl のあと sdd-finish を送る",
