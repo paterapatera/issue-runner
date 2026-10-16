@@ -278,6 +278,30 @@ export default defineRequirements({
           when: "その質問に答える",
           then: ["プロセスが終了コード 1 で終わる", "標準エラーが model unavailable である", "同じエージェントへ回答を送らない"],
         },
+        {
+          id: "AC-037",
+          kind: "normal",
+          verifiedBy: "automated",
+          given: ["判断の JSON が {\"kind\":\"question\",\"text\":\"未コミット変更をどうしますか\"} である"],
+          when: "その判断を受け取る",
+          then: ["同じエージェントへ未コミット変更をどうしますかを送る", "プロセスは終了コード 1 で終わらない"],
+        },
+        {
+          id: "AC-039",
+          kind: "error",
+          verifiedBy: "automated",
+          given: ["判断の返答が not-json である"],
+          when: "その判断を受け取る",
+          then: ["プロセスが終了コード 1 で終わる", "標準エラーが判断の JSON を読めませんでしたである", "追加のプロンプトを送らない"],
+        },
+        {
+          id: "AC-040",
+          kind: "boundary",
+          verifiedBy: "automated",
+          given: ["判断の JSON が {\"kind\":\"question\",\"text\":\"\"} である"],
+          when: "その判断を受け取る",
+          then: ["プロセスが終了コード 1 で終わる", "標準エラーが判断の JSON を読めませんでしたである"],
+        },
       ],
       priority: "must",
     },
@@ -315,7 +339,7 @@ export default defineRequirements({
       title: "追加のプロンプトを送らない",
       ears: {
         pattern: "ubiquitous",
-        response: "送るプロンプトを /sdd-impl と spec 名だけにしなければならない",
+        response: "受け入れテストは合格。PRを作成する。と /sdd-finish を送ってはならない",
       },
       acceptance: [
         {
@@ -341,6 +365,14 @@ export default defineRequirements({
           given: ["起動が CursorAgentError で失敗する"],
           when: "local agent を起動する",
           then: ["受け入れテストは合格。PRを作成する。を送らない", "/sdd-finish を送らない"],
+        },
+        {
+          id: "AC-038",
+          kind: "normal",
+          verifiedBy: "automated",
+          given: ["判断の JSON が {\"kind\":\"done\"} である"],
+          when: "その判断を受け取る",
+          then: ["追加のプロンプトを送らない"],
         },
       ],
       priority: "must",
@@ -509,6 +541,16 @@ export default defineRequirements({
       target: "最初のプロンプト",
       aspect: "値が空のとき",
       answer: "最初から /sdd-impl だけでよい。spec 名は付けない。",
+    },
+    "ANS-013": {
+      target: "判断の JSON",
+      aspect: "形",
+      answer: "質問は {\"kind\":\"question\",\"text\":\"...\"}、完了は {\"kind\":\"done\"}。",
+    },
+    "ANS-014": {
+      target: "判断の JSON",
+      aspect: "読めないとき",
+      answer: "終了コード 1。標準エラーは「判断の JSON を読めませんでした」。",
     },
   },
   assumptions: [
