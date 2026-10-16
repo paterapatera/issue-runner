@@ -116,7 +116,12 @@ export default defineDesign<typeof requirements>()({
   ],
   impact: {
     create: ["src/work-branch/index.ts", "src/work-branch/index.test.ts"],
-    modify: ["src/github/index.ts", "src/github/apply-outcome.test.ts", "knip.json"],
+    modify: [
+      "src/github/index.ts",
+      "src/github/apply-outcome.test.ts",
+      "src/github/apply-outcome-retry.test.ts",
+      "knip.json",
+    ],
   },
   decisions: [
     {

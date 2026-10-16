@@ -115,4 +115,40 @@ export default defineTasks<typeof requirements, typeof design>()({
       status: "done",
     },
   },
+  acceptanceGuide: {
+    setup: [
+      { run: "bun install", note: "依存関係が揃っていることを確認する" },
+      { run: "bun test src/work-branch/index.test.ts", note: "prepareWorkBranch の自動テスト" },
+    ],
+    server: {
+      run: "bun docs/specs/GH-3/acceptance-server.ts",
+      url: "http://127.0.0.1:3789/",
+      timeoutSec: 15,
+    },
+    accounts: [],
+    data: [
+      {
+        acs: ["AC-004", "AC-015"],
+        run: "test -f docs/sdd/config.ts",
+        expect: "起動ディレクトリに docs/sdd/config.ts があり、issueIdPrefix が読める",
+      },
+      {
+        acs: ["AC-003", "AC-017"],
+        run: "git remote get-url origin",
+        expect: "origin が設定されており、人が該当ブランチを push 済みである",
+      },
+    ],
+    check: [
+      {
+        url: "http://127.0.0.1:3789/",
+        contains: "GH-3 acceptance ready",
+        note: "受け入れテスト用の確認用サーバーが起動している",
+      },
+    ],
+    notes: [
+      "prepareWorkBranch は起動経路からは呼ばない。別コマンドや REPL で repository、issueNumber、title、body を渡して試す。",
+      "人が確かめる受け入れ条件は、テスト用の GitHub issue（agent:queued）と origin の作業ブランチを用意してから prepareWorkBranch を実行し、git branch --show-current と gh issue view でラベル・コメントを確認する。",
+      "失敗系は、該当ブランチが0件・複数・設定ファイル無しなどの状態を用意して、標準エラーが1行だけ出ることを確認する。",
+    ],
+  },
 });
