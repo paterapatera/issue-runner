@@ -25,7 +25,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "INV-005",
         "NFR-001",
       ],
-      status: "doing",
+      status: "done",
     },
     "T-002": {
       title: "pollOnce の空の失敗理由を日本語にする",
@@ -33,7 +33,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/agent/index.ts の failWithMessage で、writeStderr する文字列の長さが 0 のときだけ「予期せぬ失敗が発生しました」を書く。1文字以上ならその文字列のまま書く。runSddCycle が返す message は空のまま変えない。GitHub のコメント本文は変えない。",
       refs: ["FR-003", "pollOnce"],
-      status: "todo",
+      status: "done",
     },
     "T-003": {
       title: "pollOnce の空理由と英語理由をテストする",

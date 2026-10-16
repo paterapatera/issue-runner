@@ -6,6 +6,7 @@ export { CursorAgentError };
 const IMPL_PROMPT = "/sdd-impl";
 const FINISH_PROMPT = "/sdd-finish";
 const JUDGMENT_JSON_UNREADABLE = "判断の JSON を読めませんでした";
+const UNEXPECTED_FAILURE_MESSAGE = "予期せぬ失敗が発生しました";
 const FORBIDDEN_PROMPTS = ["受け入れテストは合格。PRを作成する。", "/sdd-finish"];
 
 export type CreateAgentOptions = {
@@ -155,7 +156,8 @@ async function requestJudgment(
 }
 
 function failWithMessage(deps: PollOnceDeps, message: string): { ok: false; exitCode: 1 } {
-  deps.writeStderr(message);
+  const line = message.length === 0 ? UNEXPECTED_FAILURE_MESSAGE : message;
+  deps.writeStderr(line);
   deps.exit(1);
   return { ok: false, exitCode: 1 };
 }
