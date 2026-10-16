@@ -37,7 +37,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/agent/index.test.ts に runSddCycle のテストを足す。/sdd-impl の wait が終わるまで /sdd-finish を送らないことを観測する。wait が終わったあと /sdd-finish を1回送ることを観測する。実行中のエラーでは /sdd-finish を送らず、message にその文が入ることを観測する。exit は呼ばない。",
       refs: ["FR-002", "LocalAgent"],
       verifies: ["AC-004"],
-      status: "todo",
+      status: "done",
     },
     "T-005": {
       title: "起動画面の状態を後から変える",

@@ -33,15 +33,14 @@ export function emptyGh(): GhRunner {
 
 export type AgentScript = {
   onSend: (prompt: string, agentIndex: number, runIndex: number) => AgentRunResult;
+  onWait?: (prompt: string, agentIndex: number, runIndex: number) => void;
 };
 
-export function buildDeps(script: AgentScript, gh: GhRunner = ghWithIssues([3])) {
-  const agents: RecordedAgent[] = [];
-  const stderr: string[] = [];
-  const exitCodes: number[] = [];
-  const running = { current: false };
-
-  const createAgent = async (options: CreateAgentOptions): Promise<LocalAgentSession> => {
+function recordingCreateAgent(
+  script: AgentScript,
+  agents: RecordedAgent[],
+): (options: CreateAgentOptions) => Promise<LocalAgentSession> {
+  return async (options: CreateAgentOptions): Promise<LocalAgentSession> => {
     const agent: RecordedAgent = { options, runs: [] };
     agents.push(agent);
     const agentIndex = agents.length - 1;
@@ -58,6 +57,7 @@ export function buildDeps(script: AgentScript, gh: GhRunner = ghWithIssues([3]))
         agent.runs.push(recorded);
         return {
           wait: async () => {
+            script.onWait?.(prompt, agentIndex, runIndex);
             recorded.waitCalls += 1;
             return waitResult;
           },
@@ -65,6 +65,15 @@ export function buildDeps(script: AgentScript, gh: GhRunner = ghWithIssues([3]))
       },
     };
   };
+}
+
+export function buildDeps(script: AgentScript, gh: GhRunner = ghWithIssues([3])) {
+  const agents: RecordedAgent[] = [];
+  const stderr: string[] = [];
+  const exitCodes: number[] = [];
+  const running = { current: false };
+
+  const createAgent = recordingCreateAgent(script, agents);
 
   const deps = {
     gh,
@@ -85,6 +94,28 @@ function questionJudgment(pairs: { question: string; answer: string }[]): AgentR
   return {
     status: "finished",
     result: JSON.stringify({ kind: "question", pairs }),
+  };
+}
+
+export function buildCycleDeps(script: AgentScript) {
+  const agents: RecordedAgent[] = [];
+  return { deps: { createAgent: recordingCreateAgent(script, agents) }, agents };
+}
+
+export function implThenFinishScript(
+  implResult = "impl done",
+  finishResult = "finish done",
+): AgentScript {
+  return {
+    onSend: (prompt, agentIndex) => {
+      if (agentIndex === 0 && prompt === "/sdd-impl") {
+        return { status: "finished", result: implResult };
+      }
+      if (agentIndex === 0 && prompt === "/sdd-finish") {
+        return { status: "finished", result: finishResult };
+      }
+      return doneJudgment();
+    },
   };
 }
 
