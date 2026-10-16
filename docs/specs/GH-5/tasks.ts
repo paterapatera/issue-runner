@@ -62,7 +62,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/poll/index.ts に startPolling を置く。最初に listRunningIssues を呼び、各 issue を applyOutcome の failed にする。hasRunId が false のときは標準エラーを予期せぬ失敗が発生しましたにして exit(1) する。hasRunId が true のときも agent:failed にし、agent:done にはしない。そのあと schedule で intervalMinutes 分ごとに1回だけ処理する。実行中なら次の issue は始めない。候補は設定の assignee の agent:queued だけにする。0件なら何も始めない。2件以上なら createAgent で composer-2.5、fast なしの別呼び出しに JSON だけを返させ、choice の番号を始める。tie のときは番号の小さいほうを始める。判断の失敗文があればその文を標準エラーにして exit(1) し、どちらも始めない。JSON が読めなければ標準エラーを判断の JSON を読めませんでしたにして exit(1) する。始める前に setStatus を実行中にし、beginRunning で実行 ID のコメントと agent:running を付ける。そのあと prepareWorkBranch を呼ぶ。失敗時は prepareWorkBranch の終了に任せ、/sdd-impl と /sdd-finish は送らない。成功したら runSddCycle を呼ぶ。成功なら applyOutcome の done で agent:done にし、setStatus を待機中に戻す。runSddCycle が失敗したら message を標準エラーにし、agent:failed にして /sdd-finish は送らず exit(1) する。agent:failed への更新に失敗したら標準エラーをラベルを更新できませんでしたにして exit(1) する。列挙の失敗ではプロセスを終了せず、その回は始めない。",
       refs: ["FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "PollLoop"],
-      status: "doing",
+      status: "done",
     },
     "T-008": {
       title: "接続の受け入れ条件をテストする",
@@ -90,7 +90,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-018",
         "AC-019",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-009": {
       title: "本番の起動から接続を始める",

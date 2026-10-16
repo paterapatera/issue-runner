@@ -36,7 +36,7 @@ export type AgentScript = {
   onWait?: (prompt: string, agentIndex: number, runIndex: number) => void;
 };
 
-function recordingCreateAgent(
+export function recordingCreateAgent(
   script: AgentScript,
   agents: RecordedAgent[],
 ): (options: CreateAgentOptions) => Promise<LocalAgentSession> {
