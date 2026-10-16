@@ -17,6 +17,7 @@ export default defineTasks<typeof requirements, typeof design>()({
     "T-002": {
       title: "設定の読み書きと判定を実装する",
       kind: "impl",
+      status: "done",
       description:
         "src/config/index.ts に loadStartup と saveConfig を実装する。判定は zod 4.6.7 の z.string().trim() を使う。loadStartup は cwd、環境変数、gh のログイン名を取る関数を受け取る。CURSOR_API_KEY は trim して空、または空白だけなら kind: 'exit'、code: 1 とし、キーの値は stderr に出さない。issue-runner.json が JSON として読めなければ code: 1 と stderr「設定ファイルを読めません: issue-runner.json」。ファイルが無い、repository が無い・空・空白だけ・改行を含む、assignee が無い・空文字・改行を含む、model が空文字か途中に改行を含むときは kind: 'settings'。assignee の既定は gh が返したログイン名で、返せなければ空。interval の項目が無く model の項目が無いときは既定の 1 と composer-2.5 で、他がそろっていれば kind: 'main'。saveConfig は前後の空白と末尾の改行を除いて判定し、通れば repository、interval、model、assignee だけを JSON に書く。interval は分の整数で最小 1、上限なし、半角数字のみ。repository は GitHub の owner/repo、assignee は GitHub のユーザー名。model の途中の改行は「model に改行は使えません」。書けないときは「設定ファイルを書けません: issue-runner.json」でプロセスは終了しない。",
       refs: [
@@ -48,7 +49,6 @@ export default defineTasks<typeof requirements, typeof design>()({
         "FR-037",
         "FR-041",
       ],
-      status: "todo",
     },
     "T-003": {
       title: "設定の受け入れ条件をテストする",
