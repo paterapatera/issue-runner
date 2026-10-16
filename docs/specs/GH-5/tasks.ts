@@ -98,7 +98,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/main/index.ts の import.meta.main のときだけ startPolling を渡す。起動画面の onReady で受け取った setStatus を startPolling に渡す。interval は設定の分、repository と assignee と cwd も設定から渡す。run に startPolling を渡さない呼び出しは、今の設定画面と API キー不足のままにする。src/config は変えない。",
       refs: ["FR-008", "Startup", "PollLoop"],
-      status: "todo",
+      status: "done",
     },
     "T-010": {
       title: "起動の既存の振る舞いをテストする",
