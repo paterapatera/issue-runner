@@ -6,6 +6,8 @@ export type GhRunResult = { ok: true; stdout: string } | { ok: false };
 
 export type GhRunner = (argv: string[], options?: { stdin?: string }) => Promise<GhRunResult>;
 
+const STATE_LABELS = ["agent:queued", "agent:running", "agent:done", "agent:failed"] as const;
+
 const LIST_FAILURE_MESSAGE = "issue の列挙に失敗しました\n";
 
 type GhIssue = {
@@ -116,4 +118,53 @@ export async function listQueuedIssues(
     .sort((a, b) => a.number - b.number);
 
   return { ok: true, issues };
+}
+
+async function setStateLabel(
+  repository: string,
+  issueNumber: number,
+  label: string,
+  run: GhRunner,
+): Promise<boolean> {
+  const result = await run([
+    "issue",
+    "edit",
+    String(issueNumber),
+    "--repo",
+    repository,
+    ...STATE_LABELS.flatMap((stateLabel) => ["--remove-label", stateLabel]),
+    "--add-label",
+    label,
+  ]);
+  return result.ok;
+}
+
+async function addIssueComment(
+  repository: string,
+  issueNumber: number,
+  body: string,
+  run: GhRunner,
+): Promise<boolean> {
+  const result = await run(
+    ["issue", "comment", String(issueNumber), "--repo", repository, "--body-file", "-"],
+    { stdin: body },
+  );
+  return result.ok;
+}
+
+export async function beginRunning(
+  repository: string,
+  issueNumber: number,
+  deps: { run: GhRunner; newRunId: () => string },
+): Promise<{ ok: true; runId: string } | { ok: false }> {
+  const runId = deps.newRunId();
+  const commented = await addIssueComment(repository, issueNumber, runId, deps.run);
+  if (!commented) {
+    return { ok: false };
+  }
+  const labeled = await setStateLabel(repository, issueNumber, "agent:running", deps.run);
+  if (!labeled) {
+    return { ok: false };
+  }
+  return { ok: true, runId };
 }

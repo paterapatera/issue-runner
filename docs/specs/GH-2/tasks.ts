@@ -34,7 +34,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/github/index.ts に beginRunning を足す。newRunId が返す小文字 UUID だけを本文にするコメントを gh issue comment --body-file - で付け、gh issue edit の --remove-label で agent:queued、agent:running、agent:done、agent:failed を外し、--add-label で agent:running だけにする。どちらかが失敗したら ok: false。src/github/index.test.ts で beginRunning を呼び、付けたラベルと外したラベル、コメント本文が UUID そのものであることを観測する。AC-003 と AC-005 は人が GitHub の画面で見る結果と同じ内容を、差し替えた GhRunner の引数で観測する。AC-004 は queued と running が両方付いた状態から running だけになること、AC-006 は 00000000-0000-4000-8000-000000000000 の 36 文字が省略されないことを観測する。",
       refs: ["FR-002", "FR-003", "GithubIssueState"],
       verifies: ["AC-003", "AC-004", "AC-005", "AC-006"],
-      status: "todo",
+      status: "done",
     },
     "T-003": {
       title: "完了と失敗の反映を実装しテストする",
