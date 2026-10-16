@@ -13,7 +13,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "bun add で dependencies に @cursor/sdk の 1.0.37 だけを足す。他のパッケージや lock ファイルは足さない。src はまだ作らない。",
       refs: ["LocalAgent"],
-      status: "todo",
+      status: "done",
     },
     "T-002": {
       title: "1件の local agent を起動する",
