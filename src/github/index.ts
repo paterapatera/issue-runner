@@ -81,6 +81,10 @@ function hasQueuedLabel(issue: GhIssue): boolean {
   return issue.labels?.some((label) => label.name === "agent:queued") ?? false;
 }
 
+function hasRunningLabel(issue: GhIssue): boolean {
+  return issue.labels?.some((label) => label.name === "agent:running") ?? false;
+}
+
 function issueToRow(issue: GhIssue): IssueRow {
   return {
     number: issue.number,
@@ -118,6 +122,56 @@ export async function listQueuedIssues(
     .filter((issue) => hasQueuedLabel(issue))
     .map(issueToRow)
     .sort((a, b) => a.number - b.number);
+
+  return { ok: true, issues };
+}
+
+async function issueHasRunIdComment(
+  repository: string,
+  issueNumber: number,
+  run: GhRunner,
+): Promise<boolean> {
+  const comments = await listIssueComments(repository, issueNumber, run);
+  if (comments === undefined) {
+    return false;
+  }
+  return countRunIdComments(comments) > 0;
+}
+
+export async function listRunningIssues(
+  repository: string,
+  assignee: string,
+  deps: { run: GhRunner; writeStderr: (line: string) => void },
+): Promise<{ ok: true; issues: { number: number; hasRunId: boolean }[] } | { ok: false }> {
+  const result = await deps.run([
+    "api",
+    "--paginate",
+    `repos/${repository}/issues`,
+    "-f",
+    "state=open",
+    "-f",
+    "labels=agent:running",
+    "-f",
+    `assignee=${assignee}`,
+  ]);
+
+  if (!result.ok) {
+    deps.writeStderr(LIST_FAILURE_MESSAGE);
+    return { ok: false };
+  }
+
+  const raw = parseGhJsonArray(result.stdout);
+  const running = raw
+    .filter((issue) => issue.pull_request === undefined)
+    .filter((issue) => issue.assignee?.login === assignee)
+    .filter((issue) => hasRunningLabel(issue))
+    .sort((a, b) => a.number - b.number);
+
+  const issues: { number: number; hasRunId: boolean }[] = [];
+  for (const issue of running) {
+    const hasRunId = await issueHasRunIdComment(repository, issue.number, deps.run);
+    issues.push({ number: issue.number, hasRunId });
+  }
 
   return { ok: true, issues };
 }

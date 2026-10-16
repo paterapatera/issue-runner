@@ -12,7 +12,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/github/index.ts に listRunningIssues を足す。引数は repository、assignee、deps の run と writeStderr。開いている agent:running のうち assignee のものだけを番号の昇順で返す。各 issue のコメント本文が小文字の UUID だけなら hasRunId は true。列挙に失敗したときは listQueuedIssues と同じ標準エラーを書き、ok: false を返す。pollOnce と beginRunning と applyOutcome の既存の振る舞いは変えない。",
       refs: ["FR-004", "IssueLabels"],
-      status: "todo",
+      status: "done",
     },
     "T-002": {
       title: "running の列挙をテストする",
