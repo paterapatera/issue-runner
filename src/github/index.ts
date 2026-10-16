@@ -101,6 +101,8 @@ export async function listQueuedIssues(
   const result = await deps.run([
     "api",
     "--paginate",
+    "--method",
+    "GET",
     `repos/${repository}/issues`,
     "-f",
     "state=open",
@@ -146,6 +148,8 @@ export async function listRunningIssues(
   const result = await deps.run([
     "api",
     "--paginate",
+    "--method",
+    "GET",
     `repos/${repository}/issues`,
     "-f",
     "state=open",

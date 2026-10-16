@@ -34,6 +34,10 @@ function commentsForPath(path: string, commentsByIssue: IssueComments): string |
   return JSON.stringify(comments);
 }
 
+function issuesListPath(argv: string[]): string | undefined {
+  return argv.find((arg) => /^repos\/[^/]+\/[^/]+\/issues$/.test(arg));
+}
+
 function listRunningRunner(
   issues: GhIssue[],
   commentsByIssue: IssueComments = {},
@@ -41,14 +45,20 @@ function listRunningRunner(
 ): GhRunner {
   return async (argv) => {
     expect(argv[0]).toBe("api");
-    const path = argv[2];
+    const path = issuesListPath(argv);
+    const commentsPath = argv.find((arg) => /\/issues\/\d+\/comments$/.test(arg));
+    if (commentsPath !== undefined) {
+      const commentsJson = commentsForPath(commentsPath, commentsByIssue);
+      if (commentsJson !== undefined) {
+        return { ok: true, stdout: commentsJson };
+      }
+      return { ok: false };
+    }
     if (path === undefined) {
       return { ok: false };
     }
-    const commentsJson = commentsForPath(path, commentsByIssue);
-    if (commentsJson !== undefined) {
-      return { ok: true, stdout: commentsJson };
-    }
+    expect(argv).toContain("--method");
+    expect(argv).toContain("GET");
     if (path === "repos/example/app/issues") {
       if (failList) {
         return { ok: false };
@@ -63,6 +73,8 @@ function listRunningRunner(
 function listRunner(issues: GhIssue[], fail = false): GhRunner {
   return async (argv) => {
     expect(argv[0]).toBe("api");
+    expect(argv).toContain("--method");
+    expect(argv).toContain("GET");
     expect(argv).toContain(`repos/example/app/issues`);
     if (fail) {
       return { ok: false };

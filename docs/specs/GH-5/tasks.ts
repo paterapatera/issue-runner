@@ -109,6 +109,14 @@ export default defineTasks<typeof requirements, typeof design>()({
       verifies: ["INV-001"],
       status: "done",
     },
+    "T-011": {
+      title: "issue 列挙の gh api を GET にする",
+      kind: "fix",
+      description:
+        "listQueuedIssues と listRunningIssues の gh api 呼び出しに --method GET を付ける。-f だけだと POST 扱いになり issue の列挙に失敗しました になる。テストで argv に GET があることを観測する。",
+      refs: ["IssueLabels", "PollLoop"],
+      status: "done",
+    },
   },
   acceptanceGuide: {
     setup: [

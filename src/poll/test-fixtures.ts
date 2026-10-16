@@ -56,8 +56,17 @@ function issueListLabel(argv: string[]): "queued" | "running" | undefined {
   return undefined;
 }
 
-function commentsJson(path: string | undefined, comments: IssueComments): string | undefined {
-  if (path === undefined || !path.includes("/comments")) {
+function issueCommentsPath(argv: string[]): string | undefined {
+  return argv.find((arg) => /\/issues\/\d+\/comments$/.test(arg));
+}
+
+function issueListPath(argv: string[]): string | undefined {
+  return argv.find((arg) => /^repos\/[^/]+\/[^/]+\/issues$/.test(arg));
+}
+
+function commentsJson(argv: string[], comments: IssueComments): string | undefined {
+  const path = issueCommentsPath(argv);
+  if (path === undefined) {
     return undefined;
   }
   const match = path.match(/\/issues\/(\d+)\/comments$/);
@@ -70,8 +79,8 @@ function apiListResponse(
   state: GhState,
   failList: boolean,
 ): { ok: true; stdout: string } | { ok: false } | undefined {
-  const path = argv[2];
-  if (path === undefined || !path.endsWith("/issues")) {
+  const path = issueListPath(argv);
+  if (path === undefined) {
     return undefined;
   }
   if (failList) {
@@ -92,7 +101,7 @@ function createGhRunner(state: GhState, failList = false) {
   const run = async (argv: string[], options?: { stdin?: string }) => {
     calls.push({ argv, stdin: options?.stdin });
     if (argv[0] === "api") {
-      const comments = commentsJson(argv[2], state.comments);
+      const comments = commentsJson(argv, state.comments);
       if (comments !== undefined) {
         return { ok: true as const, stdout: comments };
       }
