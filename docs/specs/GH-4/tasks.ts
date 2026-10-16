@@ -96,4 +96,25 @@ export default defineTasks<typeof requirements, typeof design>()({
       status: "done",
     },
   },
+  acceptanceGuide: {
+    setup: [
+      { run: "bun install", note: "依存関係（@cursor/sdk 含む）" },
+      { run: "bun test src/agent", note: "local agent の受け入れ条件をカバーするユニットテスト" },
+      { run: "bun docs/sdd/scripts/gate.ts", note: "品質ゲート" },
+    ],
+    accounts: [],
+    data: [],
+    check: [
+      {
+        url: "https://example.com",
+        status: 200,
+        note:
+          "pollOnce は起動経路未接続のため画面確認は無し。上記 setup で agent モジュールを確かめる。",
+      },
+    ],
+    notes: [
+      "src/agent の pollOnce は、repository・assignee・cwd と createAgent 等を呼び出し側が渡す。issue-runner の TUI からはまだ呼ばれない。",
+      "実際の local agent 実行には CURSOR_API_KEY と対象チェックアウトが必要。手動試験は別スクリプトから pollOnce を呼ぶ。",
+    ],
+  },
 });

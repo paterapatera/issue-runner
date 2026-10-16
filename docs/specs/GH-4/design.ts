@@ -89,8 +89,14 @@ export default defineDesign<typeof requirements>()({
     },
   ],
   impact: {
-    create: ["src/agent/index.ts", "src/agent/index.test.ts"],
-    modify: ["package.json", "knip.json"],
+    create: [
+      "src/agent/index.ts",
+      "src/agent/test-fixtures.ts",
+      "src/agent/poll-once-startup.test.ts",
+      "src/agent/poll-once-failures.test.ts",
+      "src/agent/poll-once-questions.test.ts",
+    ],
+    modify: ["package.json", "knip.json", "bun.lock"],
   },
   decisions: [
     {
