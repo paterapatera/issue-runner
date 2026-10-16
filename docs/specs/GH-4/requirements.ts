@@ -385,6 +385,40 @@ export default defineRequirements({
       ],
       priority: "must",
     },
+    "FR-014": {
+      title: "推奨を選ぶ",
+      ears: {
+        pattern: "event",
+        trigger: "推奨の選択肢がある質問に答えた",
+        response: "その推奨の選択肢を回答にしなければならない",
+      },
+      acceptance: [
+        {
+          id: "AC-041",
+          kind: "normal",
+          verifiedBy: "automated",
+          given: [
+            "質問が2件である",
+            "1件目の選択肢は捨てるとそのまま残す（推奨）である",
+            "2件目の選択肢は別名にする（推奨）とこの名前でよいである",
+          ],
+          when: "その質問に答える",
+          then: ["1件目の回答がそのまま残すである", "2件目の回答が別名にするである"],
+        },
+        {
+          id: "AC-042",
+          kind: "boundary",
+          verifiedBy: "automated",
+          given: ["質問が1件である", "選択肢は残す、捨てる（推奨）、聞くの順である"],
+          when: "その質問に答える",
+          then: ["回答が捨てるである"],
+        },
+      ],
+      notApplicable: {
+        error: "推奨が無い質問は失敗にしない。回答を返すことは FR-010 で決める",
+      },
+      priority: "must",
+    },
   },
   nonFunctional: {},
   invariants: {
@@ -564,6 +598,11 @@ export default defineRequirements({
       target: "判断の JSON",
       aspect: "読めないとき",
       answer: "終了コード 1。標準エラーは「判断の JSON を読めませんでした」。",
+    },
+    "ANS-017": {
+      target: "判断の JSON",
+      aspect: "推奨",
+      answer: "回答は推奨となるものを優先的に選択する。",
     },
   },
   assumptions: [

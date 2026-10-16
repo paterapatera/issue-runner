@@ -118,7 +118,7 @@ export default defineDesign<typeof requirements>()({
       decidedBy: "ai",
       context: "完了は kind が done のまま。質問は ANS-016 のとおり、質問と回答の組を1件以上返す。/sdd-impl のプロンプトは変えない",
       decision:
-        "実行が error でも CursorAgentError でもないとき、同じモデルの別エージェントに実行結果を渡して JSON だけを返させる。kind が question のとき、pairs の各組を配列の順に元のエージェントへ送る。組が0件、question か answer が空なら判断の JSON を読めなかったものとして扱う。kind が done なら追加で送らない",
+        "実行が error でも CursorAgentError でもないとき、同じモデルの別エージェントに実行結果を渡して JSON だけを返させる。質問に推奨の選択肢があるときは、その選択肢を回答にする。kind が question のとき、pairs の各組を配列の順に元のエージェントへ送る。組が0件、question か answer が空なら判断の JSON を読めなかったものとして扱う。kind が done なら追加で送らない",
       alternatives: [
         { option: "実行中のエージェント自身に JSON を返させる", reason: "/sdd-impl のプロンプトを変えることになる" },
       ],
@@ -146,6 +146,7 @@ export default defineDesign<typeof requirements>()({
     "FR-010": ["LocalAgent"],
     "FR-011": ["LocalAgent"],
     "FR-013": ["LocalAgent"],
+    "FR-014": ["LocalAgent"],
   },
   nfrStrategy: {},
   invariantStrategy: {
