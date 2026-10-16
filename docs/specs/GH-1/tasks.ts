@@ -1,6 +1,6 @@
 import { defineTasks } from "../../sdd/schema/mod.ts";
-import type requirements from "./requirements.ts";
 import type design from "./design.ts";
+import type requirements from "./requirements.ts";
 
 // 実装タスク（docs/specs/GH-1/tasks.ts）。上から順に実施する。
 // 書き方: docs/sdd/guides/writing-tasks.md
@@ -12,7 +12,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "package.json、bun.lock、biome.json、.dependency-cruiser.cjs、knip.json、.jscpd.json を作る。devDependency は Biome 2.5.15、dependency-cruiser 18.6.0、@swc/core 1.16.18、Knip 6.41.0、jscpd 5.4.1、TypeScript 7.0.2。dependency は @opentui/core 0.6.6 と zod 4.6.7。@cursor/sdk は入れない。package.json の script 名に check は置かない。docs/sdd/config.ts の commands.format は bunx biome check --write .、commands.check は bunx biome check . && bun --check && bunx depcruise src --config .dependency-cruiser.cjs && bunx knip && bunx jscpd src、commands.test は bun test。e2e は登録しない。Biome は認知的複雑度 12、関数本体 60 行、引数 4。jscpd は閾値 0% で、5 行または 50 トークン未満は見ない。dependency-cruiser は、src/config/index.ts が src/main と src/tui に依存しない、src/tui/index.ts が src/config を import しない、@opentui/core を import できるのは src/tui/index.ts だけ、にする。docs/sdd/conventions.ts のモジュール依存の規約は enforcedBy を gate にし、パスを src/main/index.ts、src/config/index.ts、src/tui/index.ts に合わせる。src/main/index.ts は src/config/index.ts と src/tui/index.ts を import するだけの入口、src/config/index.ts と src/tui/index.ts は空の export、src/config/index.test.ts は bun test が成功する最小のテストにする。このタスクのテストから gate.ts や bun install は呼ばない。",
       refs: ["main", "config", "tui"],
-      status: "todo",
+      status: "done",
     },
     "T-002": {
       title: "設定の読み書きと判定を実装する",
@@ -55,7 +55,17 @@ export default defineTasks<typeof requirements, typeof design>()({
       kind: "test",
       description:
         "src/config/index.test.ts で loadStartup と saveConfig を呼ぶ。一時ディレクトリに issue-runner.json を置き、gh のログイン名は引数の関数で返す。when にあたる呼び出しの戻り値、終了コード、stderr、書いた JSON の中身を観測する。ソースの文字列検索はしない。API キーの欠如・空・空白、読めない JSON、repository と assignee と model と interval の境界と拒否文言、39文字と100文字、1000文字の model、書き込み失敗を含める。",
-      refs: ["config", "FR-002", "FR-003", "FR-012", "FR-014", "FR-017", "FR-019", "FR-023", "FR-041"],
+      refs: [
+        "config",
+        "FR-002",
+        "FR-003",
+        "FR-012",
+        "FR-014",
+        "FR-017",
+        "FR-019",
+        "FR-023",
+        "FR-041",
+      ],
       verifies: [
         "AC-002",
         "AC-004",

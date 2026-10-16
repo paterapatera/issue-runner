@@ -8,4 +8,10 @@ export default defineConfig({
   issueIdPrefix: "GH",
   forge: { cli: "gh" },
   ui: false,
+  commands: {
+    format: "bunx biome check --write .",
+    check:
+      "bunx biome check . && bun --check && bunx depcruise src --config .dependency-cruiser.cjs && bunx knip && bunx jscpd src",
+    test: "bun test",
+  },
 });

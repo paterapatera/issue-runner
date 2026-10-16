@@ -32,8 +32,10 @@ export default defineConventions({
   },
   "CONV-006": {
     topic: "モジュールの依存",
-    rule: "main は config と tui に依存する。tui は読み込み済みの設定を引数で受け取り、config を import しない。config は他のモジュールに依存しない。@opentui/core を import できるのは src/tui.ts だけ",
-    enforcedBy: "manual",
+    rule: "main は config と tui に依存する。tui は読み込み済みの設定を引数で受け取り、config を import しない。config は他のモジュールに依存しない。@opentui/core を import できるのは src/tui/index.ts だけ",
+    enforcedBy: "gate",
+    tool: "dependency-cruiser",
+    config: [".dependency-cruiser.cjs"],
   },
   "CONV-007": {
     topic: "パッケージマネージャ",
