@@ -51,3 +51,23 @@ export function addedStateLabel(calls: GhCall[]): string | undefined {
   const edit = calls.find((call) => call.argv[0] === "issue" && call.argv[1] === "edit");
   return labelsFromEdit(edit?.argv ?? []).added[0];
 }
+
+export function commentsAwareGhRunner(comments: { body: string }[]): {
+  run: GhRunner;
+  calls: GhCall[];
+} {
+  const base = recordingGhRunner((call) => {
+    if (call.argv[0] === "api" && call.argv[2]?.includes("/comments")) {
+      return { ok: true };
+    }
+    return { ok: true };
+  });
+  const run: GhRunner = async (argv, options) => {
+    base.calls.push({ argv, stdin: options?.stdin });
+    if (argv[0] === "api" && argv[2]?.includes("/comments")) {
+      return { ok: true, stdout: JSON.stringify(comments) };
+    }
+    return { ok: true, stdout: "" };
+  };
+  return { run, calls: base.calls };
+}

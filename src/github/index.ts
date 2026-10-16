@@ -10,6 +10,8 @@ const STATE_LABELS = ["agent:queued", "agent:running", "agent:done", "agent:fail
 
 const LIST_FAILURE_MESSAGE = "issue の列挙に失敗しました\n";
 
+const LOWER_UUID_BODY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 type GhIssue = {
   number: number;
   title: string;
@@ -175,6 +177,20 @@ function failureCommentBody(reason: string): string {
   return reason.length > 0 ? reason : UNEXPECTED_FAILURE_MESSAGE;
 }
 
+async function applyFailedWithComment(
+  repository: string,
+  issueNumber: number,
+  reason: string,
+  run: GhRunner,
+): Promise<{ ok: true } | { ok: false }> {
+  const labeled = await setStateLabel(repository, issueNumber, "agent:failed", run);
+  if (!labeled) {
+    return { ok: false };
+  }
+  const commented = await addIssueComment(repository, issueNumber, failureCommentBody(reason), run);
+  return commented ? { ok: true } : { ok: false };
+}
+
 export type ApplyOutcome =
   | { type: "done" }
   | { type: "failed"; reason: string }
@@ -192,18 +208,50 @@ export async function applyOutcome(
   }
 
   if (outcome.type === "failed") {
-    const labeled = await setStateLabel(repository, issueNumber, "agent:failed", deps.run);
-    if (!labeled) {
-      return { ok: false };
-    }
-    const commented = await addIssueComment(
-      repository,
-      issueNumber,
-      failureCommentBody(outcome.reason),
-      deps.run,
-    );
-    return commented ? { ok: true } : { ok: false };
+    return applyFailedWithComment(repository, issueNumber, outcome.reason, deps.run);
   }
 
-  return { ok: false };
+  return applyRetryableOutcome(repository, issueNumber, outcome.reason, deps.run);
+}
+
+async function applyRetryableOutcome(
+  repository: string,
+  issueNumber: number,
+  reason: string,
+  run: GhRunner,
+): Promise<{ ok: true } | { ok: false }> {
+  const comments = await listIssueComments(repository, issueNumber, run);
+  if (comments === undefined) {
+    return { ok: false };
+  }
+  const requeueCount = Math.max(0, countRunIdComments(comments) - 1);
+  if (requeueCount < 3) {
+    const labeled = await setStateLabel(repository, issueNumber, "agent:queued", run);
+    return labeled ? { ok: true } : { ok: false };
+  }
+  return applyFailedWithComment(repository, issueNumber, reason, run);
+}
+
+type GhComment = {
+  body: string;
+};
+
+async function listIssueComments(
+  repository: string,
+  issueNumber: number,
+  run: GhRunner,
+): Promise<GhComment[] | undefined> {
+  const result = await run([
+    "api",
+    "--paginate",
+    `repos/${repository}/issues/${issueNumber}/comments`,
+  ]);
+  if (!result.ok) {
+    return undefined;
+  }
+  return parseGhJsonArray(result.stdout) as GhComment[];
+}
+
+function countRunIdComments(comments: GhComment[]): number {
+  return comments.filter((comment) => LOWER_UUID_BODY.test(comment.body)).length;
 }

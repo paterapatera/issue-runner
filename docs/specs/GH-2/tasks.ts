@@ -66,7 +66,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "applyOutcome の type が retryable のとき、gh でコメント一覧を読み、本文が小文字 UUID そのものの件数から1を引いた値を、これまでに queued へ戻した回数とする。3未満なら agent:queued だけにしてコメントを増やさない。3以上なら agent:failed だけにし、失敗理由のコメントを1件足す。空文字なら「予期せぬ失敗が発生しました」。src/github/index.test.ts で、戻した回数が0のとき（AC-013、AC-020）、2のとき（AC-031）、3のとき（AC-032、AC-033）を、コメント一覧を返す GhRunner で観測する。",
       refs: ["FR-008", "FR-010", "FR-011", "FR-012", "GithubIssueState"],
       verifies: ["AC-013", "AC-020", "AC-031", "AC-032", "AC-033"],
-      status: "todo",
+      status: "done",
     },
   },
 });

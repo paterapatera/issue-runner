@@ -50,7 +50,7 @@ export default defineDesign<typeof requirements>()({
       kind: "function",
       change: "new",
       signature:
-        "applyOutcome(repository: string, issueNumber: number, outcome: { type: \"done\" } | { type: \"failed\"; reason: string } | { type: \"retryable\" }, deps: { run: GhRunner }): Promise<{ ok: true } | { ok: false }>",
+        "applyOutcome(repository: string, issueNumber: number, outcome: { type: \"done\" } | { type: \"failed\"; reason: string } | { type: \"retryable\"; reason: string }, deps: { run: GhRunner }): Promise<{ ok: true } | { ok: false }>",
       description:
         "done は agent:done だけにしてコメントを増やさない。failed は agent:failed だけにし、reason が空文字でなければその文字列、空文字なら「予期せぬ失敗が発生しました」を本文にするコメントを1件足す。retryable は、本文が小文字 UUID そのもののコメント件数から1を引いた回数が3未満なら agent:queued だけにしてコメントを増やさない。その回数が3以上なら failed と同じく agent:failed と失敗コメントにする。ラベルまたはコメントの gh が失敗したら ok: false。",
     },
