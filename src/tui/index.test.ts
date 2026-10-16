@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTestRenderer } from "@opentui/core/testing";
+import { expectValidMainHeader } from "../test-support/main-layout.ts";
 import {
   type CreateRenderer,
   type MainView,
@@ -204,12 +205,7 @@ describe("runMain embedded newlines", () => {
 describe("runMain default layout", () => {
   test("AC-001 default main layout at width 80", async () => {
     const frame = await captureMainFrame(80, 24, defaultMainView());
-    expect(frame.includes("acme/widgets")).toBe(true);
-    expect(frame.includes("2分")).toBe(true);
-    expect(frame.includes("composer-2.5")).toBe(true);
-    expect(frame.includes("octocat")).toBe(true);
-    expect(frame.includes("待機中")).toBe(true);
-    expect(frame.includes("q")).toBe(true);
+    expectValidMainHeader(frame);
     expect(frame).toMatchSnapshot();
     assertNoSecrets(frame);
   });

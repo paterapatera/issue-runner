@@ -219,7 +219,40 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-103",
         "BNFR-001",
       ],
-      status: "todo",
+      status: "done",
     },
+  },
+  acceptanceGuide: {
+    setup: [
+      { run: "bun install", note: "依存関係を入れる" },
+      { run: "bun docs/sdd/scripts/gate.ts --full", note: "自動テストと品質ゲートを通す" },
+    ],
+    accounts: [],
+    data: [
+      {
+        acs: ["AC-005", "AC-008"],
+        run:
+          "mkdir -p /tmp/issue-runner-acceptance && printf '%s\\n' '{\"repository\":\"acme/widgets\",\"assignee\":\"octocat\",\"interval\":2,\"model\":\"composer-2.5\"}' > /tmp/issue-runner-acceptance/issue-runner.json",
+        expect: "/tmp/issue-runner-acceptance/issue-runner.json が有効な設定である",
+      },
+    ],
+    server: {
+      run:
+        "bun -e \"Bun.serve({ hostname: '127.0.0.1', port: 8765, fetch() { return new Response('issue-runner acceptance ok'); } })\"",
+      url: "http://127.0.0.1:8765",
+      timeoutSec: 30,
+    },
+    check: [
+      {
+        url: "http://127.0.0.1:8765",
+        contains: "issue-runner acceptance ok",
+        note: "自動確認用スタブ。TUI の操作確認は notes の手順に従う",
+      },
+    ],
+    notes: [
+      "環境変数 CURSOR_API_KEY に有効なキーを設定する（値は画面に出さない）。",
+      "cd /tmp/issue-runner-acceptance のうえで bun src/main/index.ts を起動し、上段・中段「待機中」・下段 q を確かめ、q または Ctrl+C で終了コード 0 になることを見る（BNFR-001）。",
+      "issue-runner.json を削除した状態では設定画面が開き、項目を入力して Enter のあと起動画面に進むことを確かめる。",
+    ],
   },
 });

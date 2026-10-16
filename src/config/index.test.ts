@@ -1,20 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  API_KEY,
+  CONFIG_NAME,
+  cleanupTempDirs,
+  createTempDir,
+  ghAs,
+  validFile,
+  writeConfigJson,
+} from "../test-support/fixtures.ts";
 import { type AppConfig, loadStartup, type SettingsDraft, saveConfig } from "./index.ts";
 
-const CONFIG_NAME = "issue-runner.json";
-const API_KEY = "sk-test-123";
 const READ_ERROR = "設定ファイルを読めません: issue-runner.json";
 const WRITE_ERROR = "設定ファイルを書けません: issue-runner.json";
-
-const validFile = {
-  repository: "acme/widgets",
-  assignee: "octocat",
-  interval: 2,
-  model: "composer-2.5",
-};
 
 const validDraft = (): SettingsDraft => ({
   repository: "acme/widgets",
@@ -23,23 +22,12 @@ const validDraft = (): SettingsDraft => ({
   assignee: "octocat",
 });
 
-let tempDirs: string[] = [];
-
 afterEach(async () => {
-  for (const dir of tempDirs) {
-    await rm(dir, { recursive: true, force: true });
-  }
-  tempDirs = [];
+  await cleanupTempDirs();
 });
 
-async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "issue-runner-config-"));
-  tempDirs.push(dir);
-  return dir;
-}
-
-async function writeConfigJson(dir: string, data: Record<string, unknown>): Promise<void> {
-  await writeFile(join(dir, CONFIG_NAME), `${JSON.stringify(data)}\n`, "utf8");
+async function createConfigTempDir(): Promise<string> {
+  return createTempDir("issue-runner-config-");
 }
 
 async function writeConfigRaw(dir: string, raw: string): Promise<void> {
@@ -51,15 +39,11 @@ async function readConfigJson(dir: string): Promise<Record<string, unknown>> {
   return JSON.parse(text) as Record<string, unknown>;
 }
 
-function ghAs(login: string | undefined): () => Promise<string | undefined> {
-  return async () => login;
-}
-
 async function loadStartupWithFile(
   file: Record<string, unknown>,
   env: { CURSOR_API_KEY?: string } = { CURSOR_API_KEY: API_KEY },
 ): Promise<Awaited<ReturnType<typeof loadStartup>>> {
-  const dir = await createTempDir();
+  const dir = await createConfigTempDir();
   await writeConfigJson(dir, file);
   return loadStartup(dir, env, ghAs("octocat"));
 }
@@ -79,7 +63,7 @@ describe("loadStartup CURSOR_API_KEY", () => {
     ["empty", { CURSOR_API_KEY: "" }],
     ["whitespace-only", { CURSOR_API_KEY: "   " }],
   ])("%s key exits with code 1 and no stderr", async (_label, env) => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigJson(dir, validFile);
     const result = await loadStartup(dir, env, ghAs("octocat"));
     expect(result).toEqual({ kind: "exit", code: 1 });
@@ -89,7 +73,7 @@ describe("loadStartup CURSOR_API_KEY", () => {
   });
 
   test("trimmed key allows main when config is valid", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigJson(dir, validFile);
     const result = await loadStartup(dir, { CURSOR_API_KEY: `  ${API_KEY}  ` }, ghAs("octocat"));
     expect(result).toEqual({
@@ -106,14 +90,14 @@ describe("loadStartup CURSOR_API_KEY", () => {
 
 describe("loadStartup issue-runner.json read errors", () => {
   test("empty file exits with read error message", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigRaw(dir, "");
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
     expect(result).toEqual({ kind: "exit", code: 1, stderr: READ_ERROR });
   });
 
   test("invalid JSON exits with read error message", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigRaw(dir, "{");
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
     expect(result).toEqual({ kind: "exit", code: 1, stderr: READ_ERROR });
@@ -122,7 +106,7 @@ describe("loadStartup issue-runner.json read errors", () => {
 
 describe("loadStartup missing config file", () => {
   test("missing file opens settings with defaults and gh login", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("gh-user"));
     expect(result).toEqual({
       kind: "settings",
@@ -136,7 +120,7 @@ describe("loadStartup missing config file", () => {
   });
 
   test("missing file uses empty assignee when gh returns nothing", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs(undefined));
     expect(result).toEqual({
       kind: "settings",
@@ -152,7 +136,7 @@ describe("loadStartup missing config file", () => {
 
 describe("loadStartup incomplete config in file", () => {
   test("missing repository field opens settings", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const { repository: _r, ...rest } = validFile;
     await writeConfigJson(dir, rest);
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
@@ -160,7 +144,7 @@ describe("loadStartup incomplete config in file", () => {
   });
 
   test("whitespace-only repository in file opens settings", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, repository: "   " });
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
     expect(result.kind).toBe("settings");
@@ -170,21 +154,21 @@ describe("loadStartup incomplete config in file", () => {
   });
 
   test("repository with internal newline opens settings", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, repository: "acme\n/widgets" });
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
     expect(result.kind).toBe("settings");
   });
 
   test("empty assignee in file opens settings", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, assignee: "" });
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
     expect(result.kind).toBe("settings");
   });
 
   test("empty model in file opens settings with default in draft", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, model: "" });
     const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
     expect(result).toEqual({
@@ -212,7 +196,7 @@ describe("loadStartup main path", () => {
 
 describe("saveConfig repository validation", () => {
   test("empty repository is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), repository: "" });
     expect(result).toEqual({
       ok: false,
@@ -222,7 +206,7 @@ describe("saveConfig repository validation", () => {
   });
 
   test("whitespace-only repository is rejected as empty", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), repository: "   " });
     expect(result).toEqual({
       ok: false,
@@ -232,7 +216,7 @@ describe("saveConfig repository validation", () => {
   });
 
   test("repository without slash is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), repository: "widgets" });
     expect(result).toEqual({
       ok: false,
@@ -244,7 +228,7 @@ describe("saveConfig repository validation", () => {
 
 describe("saveConfig repository boundaries", () => {
   test("39-character owner and 100-character repo are accepted", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const owner = "a".repeat(39);
     const repo = "b".repeat(100);
     const repository = `${owner}/${repo}`;
@@ -258,7 +242,7 @@ describe("saveConfig repository boundaries", () => {
   });
 
   test("101-character repo name is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const repository = `${"a".repeat(39)}/${"b".repeat(101)}`;
     const result = await saveConfig(dir, { ...validDraft(), repository });
     expect(result).toEqual({
@@ -269,7 +253,7 @@ describe("saveConfig repository boundaries", () => {
   });
 
   test("trims surrounding whitespace on repository", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, {
       ...validDraft(),
       repository: "  acme/widgets  ",
@@ -282,7 +266,7 @@ describe("saveConfig repository boundaries", () => {
 
 describe("saveConfig assignee", () => {
   test("empty assignee is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), assignee: "" });
     expect(result).toEqual({
       ok: false,
@@ -292,7 +276,7 @@ describe("saveConfig assignee", () => {
   });
 
   test("39-character assignee is accepted", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const assignee = "a".repeat(39);
     const result = await saveConfig(dir, { ...validDraft(), assignee });
     expect(result.ok).toBe(true);
@@ -301,7 +285,7 @@ describe("saveConfig assignee", () => {
   });
 
   test("40-character assignee is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), assignee: "a".repeat(40) });
     expect(result).toEqual({
       ok: false,
@@ -311,7 +295,7 @@ describe("saveConfig assignee", () => {
   });
 
   test("whitespace-only assignee is rejected as empty", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), assignee: "   " });
     expect(result).toEqual({
       ok: false,
@@ -323,7 +307,7 @@ describe("saveConfig assignee", () => {
 
 describe("saveConfig interval", () => {
   test("zero interval is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), interval: "0" });
     expect(result).toEqual({
       ok: false,
@@ -333,7 +317,7 @@ describe("saveConfig interval", () => {
   });
 
   test("decimal interval is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), interval: "1.5" });
     expect(result).toEqual({
       ok: false,
@@ -343,7 +327,7 @@ describe("saveConfig interval", () => {
   });
 
   test("non-digit interval is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), interval: "abc" });
     expect(result).toEqual({
       ok: false,
@@ -353,7 +337,7 @@ describe("saveConfig interval", () => {
   });
 
   test("large integer interval is accepted", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), interval: "100000" });
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -366,7 +350,7 @@ describe("saveConfig interval", () => {
 
 describe("saveConfig model", () => {
   test("empty model saves as default", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), model: "" });
     expect(result.ok).toBe(true);
     const onDisk = await readConfigJson(dir);
@@ -374,7 +358,7 @@ describe("saveConfig model", () => {
   });
 
   test("whitespace-only model saves as default", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), model: "   " });
     expect(result.ok).toBe(true);
     const onDisk = await readConfigJson(dir);
@@ -382,7 +366,7 @@ describe("saveConfig model", () => {
   });
 
   test("internal newline in model is rejected", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, { ...validDraft(), model: "a\nb" });
     expect(result).toEqual({
       ok: false,
@@ -392,7 +376,7 @@ describe("saveConfig model", () => {
   });
 
   test("1000-character model is written to disk", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const model = "m".repeat(1000);
     const result = await saveConfig(dir, { ...validDraft(), model });
     expect(result.ok).toBe(true);
@@ -403,7 +387,7 @@ describe("saveConfig model", () => {
 
 describe("saveConfig successful write", () => {
   test("writes only the four config keys with trailing newline", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     const result = await saveConfig(dir, validDraft());
     expect(result).toEqual({
       ok: true,
@@ -429,14 +413,14 @@ describe("saveConfig successful write", () => {
 
 describe("saveConfig write failure", () => {
   test("returns write error when config path is not writable", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await mkdir(join(dir, CONFIG_NAME));
     const result = await saveConfig(dir, validDraft());
     expect(result).toEqual({ ok: false, message: WRITE_ERROR });
   });
 
   test("returns write error when directory is read-only", async () => {
-    const dir = await createTempDir();
+    const dir = await createConfigTempDir();
     await chmod(dir, 0o555);
     try {
       const result = await saveConfig(dir, validDraft());

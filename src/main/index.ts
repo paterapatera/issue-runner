@@ -1,12 +1,18 @@
 import { spawn } from "node:child_process";
 import { type AppConfig, loadStartup, type SettingsDraft, saveConfig } from "../config/index";
-import { runMain, runSettings } from "../tui/index";
+import { type CreateRenderer, type RunSettingsOptions, runMain, runSettings } from "../tui/index";
 
 export type RunDeps = {
   cwd: string;
   env: { CURSOR_API_KEY?: string };
   ghLogin: () => Promise<string | undefined>;
+  createRenderer?: CreateRenderer;
+  onSettingsReady?: RunSettingsOptions["onReady"];
 };
+
+function tuiOptions(createRenderer?: CreateRenderer) {
+  return createRenderer === undefined ? undefined : { createRenderer };
+}
 
 export type RunOptions = {
   deps?: Partial<RunDeps>;
@@ -49,24 +55,38 @@ function resolveDeps(options?: RunOptions): RunDeps {
     cwd: options?.deps?.cwd ?? process.cwd(),
     env: options?.deps?.env ?? { CURSOR_API_KEY: process.env.CURSOR_API_KEY },
     ghLogin: options?.deps?.ghLogin ?? fetchGhLogin,
+    createRenderer: options?.deps?.createRenderer,
+    onSettingsReady: options?.deps?.onSettingsReady,
   };
 }
 
-async function runMainScreen(config: AppConfig): Promise<number> {
-  await runMain(mainViewFromConfig(config));
+async function runMainScreen(config: AppConfig, createRenderer?: CreateRenderer): Promise<number> {
+  await runMain(mainViewFromConfig(config), tuiOptions(createRenderer));
   return 0;
 }
 
-async function runSettingsFlow(cwd: string, draft: SettingsDraft): Promise<number> {
+async function runSettingsFlow(
+  cwd: string,
+  draft: SettingsDraft,
+  createRenderer?: CreateRenderer,
+  onSettingsReady?: RunSettingsOptions["onReady"],
+): Promise<number> {
   let savedConfig: AppConfig | undefined;
-  const result = await runSettings(draft, async (next) => {
-    const saved = await saveConfig(cwd, next);
-    if (saved.ok) {
-      savedConfig = saved.config;
-      return { ok: true };
-    }
-    return { ok: false, message: saved.message };
-  });
+  const result = await runSettings(
+    draft,
+    async (next) => {
+      const saved = await saveConfig(cwd, next);
+      if (saved.ok) {
+        savedConfig = saved.config;
+        return { ok: true };
+      }
+      return { ok: false, message: saved.message };
+    },
+    {
+      ...tuiOptions(createRenderer),
+      onReady: onSettingsReady,
+    },
+  );
 
   if (result === "cancel") {
     return 0;
@@ -74,11 +94,11 @@ async function runSettingsFlow(cwd: string, draft: SettingsDraft): Promise<numbe
   if (savedConfig === undefined) {
     return 1;
   }
-  return runMainScreen(savedConfig);
+  return runMainScreen(savedConfig, createRenderer);
 }
 
 export async function run(options?: RunOptions): Promise<number> {
-  const { cwd, env, ghLogin } = resolveDeps(options);
+  const { cwd, env, ghLogin, createRenderer, onSettingsReady } = resolveDeps(options);
   const startup = await loadStartup(cwd, env, ghLogin);
 
   if (startup.kind === "exit") {
@@ -89,10 +109,10 @@ export async function run(options?: RunOptions): Promise<number> {
   }
 
   if (startup.kind === "settings") {
-    return runSettingsFlow(cwd, startup.draft);
+    return runSettingsFlow(cwd, startup.draft, createRenderer, onSettingsReady);
   }
 
-  return runMainScreen(startup.config);
+  return runMainScreen(startup.config, createRenderer);
 }
 
 if (import.meta.main) {

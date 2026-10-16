@@ -32,6 +32,7 @@ export type RunMainOptions = {
 
 export type RunSettingsOptions = {
   createRenderer?: CreateRenderer;
+  onReady?: (api: { submit: () => Promise<void> }) => void;
 };
 
 type SettingsInputs = {
@@ -199,6 +200,7 @@ export async function runSettings(
         void trySubmit();
       };
     }
+    options?.onReady?.({ submit: trySubmit });
     renderer.prependInputHandler((sequence) => {
       if (isCancelKey(sequence)) {
         finish("cancel");
