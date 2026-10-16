@@ -129,13 +129,17 @@ async function pickIssue(
   return decision;
 }
 
+function stderrForFailureReason(reason: string): string {
+  return reason.length === 0 ? UNEXPECTED_FAILURE_MESSAGE : reason;
+}
+
 async function exitAfterFailedOutcome(
   input: StartPollingInput,
   issueNumber: number,
   reason: string,
   deps: StartPollingDeps,
 ): Promise<void> {
-  deps.writeStderr(reason);
+  deps.writeStderr(stderrForFailureReason(reason));
   const outcome = await applyOutcome(
     input.repository,
     issueNumber,
@@ -236,7 +240,7 @@ async function runTick(
     if (picked.reason === "invalidJson") {
       deps.writeStderr(PRIORITY_JSON_UNREADABLE);
     } else {
-      deps.writeStderr(picked.message);
+      deps.writeStderr(stderrForFailureReason(picked.message));
     }
     deps.exit(1);
     return;

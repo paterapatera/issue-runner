@@ -12,6 +12,30 @@ import {
   type RecordedAgent,
 } from "./test-fixtures";
 
+async function pollOnceWhenImplErrors(
+  error: { message?: string },
+  issueNumbers: number[],
+): Promise<{
+  result: Awaited<ReturnType<typeof pollOnce>>;
+  stderr: string[];
+  exitCodes: number[];
+  agents: ReturnType<typeof buildDeps>["agents"];
+}> {
+  const { deps, stderr, exitCodes, agents } = buildDeps(
+    {
+      onSend: (prompt, agentIndex) => {
+        if (agentIndex === 0 && prompt === "/sdd-impl") {
+          return { status: "error", error };
+        }
+        return doneJudgment();
+      },
+    },
+    ghWithIssues(issueNumbers),
+  );
+  const result = await pollOnce({ repository: REPO, assignee: ASSIGNEE, cwd: CHECKOUT }, deps);
+  return { result, stderr, exitCodes, agents };
+}
+
 test("AC-034 AC-033 AC-015 startup CursorAgentError exits 1 without wait", async () => {
   const stderr: string[] = [];
   const exitCodes: number[] = [];
@@ -37,20 +61,18 @@ test("AC-034 AC-033 AC-015 startup CursorAgentError exits 1 without wait", async
   expect(running.current).toBe(false);
 });
 
-test("AC-032 AC-016 AC-029 run error waits once and does not start issue 4", async () => {
-  const { deps, agents, stderr, exitCodes } = buildDeps(
-    {
-      onSend: (prompt, agentIndex) => {
-        if (agentIndex === 0 && prompt === "/sdd-impl") {
-          return { status: "error", error: { message: "tool failed" } };
-        }
-        return doneJudgment();
-      },
-    },
-    ghWithIssues([3, 4]),
-  );
+test("AC-008 empty run error message exits 1 with unexpected failure line", async () => {
+  const { result, stderr, exitCodes } = await pollOnceWhenImplErrors({}, [3]);
+  expect(result).toEqual({ ok: false, exitCode: 1 });
+  expect(stderr).toEqual(["予期せぬ失敗が発生しました"]);
+  expect(exitCodes).toEqual([1]);
+});
 
-  const result = await pollOnce({ repository: REPO, assignee: ASSIGNEE, cwd: CHECKOUT }, deps);
+test("AC-032 AC-016 AC-029 run error waits once and does not start issue 4", async () => {
+  const { result, stderr, exitCodes, agents } = await pollOnceWhenImplErrors(
+    { message: "tool failed" },
+    [3, 4],
+  );
   expect(result).toEqual({ ok: false, exitCode: 1 });
   expect(stderr).toEqual(["tool failed"]);
   expect(exitCodes).toEqual([1]);

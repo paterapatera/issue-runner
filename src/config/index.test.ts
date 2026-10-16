@@ -54,6 +54,15 @@ async function loadStartupWithFile(
   return loadStartup(dir, env, ghAs("octocat"), false);
 }
 
+async function loadStartupWithRawJson(
+  raw: string,
+  env: { CURSOR_API_KEY?: string } = { CURSOR_API_KEY: API_KEY },
+): Promise<Awaited<ReturnType<typeof loadStartup>>> {
+  const dir = await createConfigTempDir();
+  await writeConfigRaw(dir, raw);
+  return loadStartup(dir, env, ghAs("octocat"), false);
+}
+
 function mainConfig(interval: number): AppConfig {
   return {
     repository: "acme/widgets",
@@ -75,6 +84,9 @@ describe("loadStartup CURSOR_API_KEY", () => {
       await writeConfigJson(dir, validFile);
       const result = await loadStartup(dir, env, ghAs("octocat"), false);
       expect(result).toEqual({ kind: "exit", code: 1, stderr: SDK_AUTH_REQUIRED });
+      if (result.kind === "exit" && result.stderr !== undefined) {
+        expect(result.stderr.includes("sk-live-secret")).toBe(false);
+      }
     },
   );
 
@@ -107,18 +119,22 @@ describe("loadStartup CURSOR_API_KEY", () => {
 });
 
 describe("loadStartup issue-runner.json read errors", () => {
-  test("empty file exits with read error message", async () => {
-    const dir = await createConfigTempDir();
-    await writeConfigRaw(dir, "");
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
+  test.each([
+    ["empty file", "", "AC-006"],
+    ["JSON array", "[]", "AC-011"],
+    ["JSON null", "null", "AC-012"],
+  ])("%s exits with read error message (%s)", async (_label, raw, _ac) => {
+    const result = await loadStartupWithRawJson(raw);
     expect(result).toEqual({ kind: "exit", code: 1, stderr: READ_ERROR });
   });
 
-  test("invalid JSON exits with read error message", async () => {
-    const dir = await createConfigTempDir();
-    await writeConfigRaw(dir, "{");
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
+  test("invalid JSON exits with read error message (AC-005)", async () => {
+    const secret = "sk-live-secret";
+    const result = await loadStartupWithRawJson("{", { CURSOR_API_KEY: secret });
     expect(result).toEqual({ kind: "exit", code: 1, stderr: READ_ERROR });
+    if (result.kind === "exit" && result.stderr !== undefined) {
+      expect(result.stderr.includes(secret)).toBe(false);
+    }
   });
 });
 

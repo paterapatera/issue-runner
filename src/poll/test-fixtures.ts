@@ -260,6 +260,28 @@ export function toolFailedOnImplScript(): AgentScript {
   };
 }
 
+export function emptyErrorOnImplScript(): AgentScript {
+  return {
+    onSend: (prompt, agentIndex) => {
+      if (agentIndex === 0 && prompt === "/sdd-impl") {
+        return { status: "error", error: { message: "" } };
+      }
+      return { status: "finished", result: "x" };
+    },
+  };
+}
+
+export function emptyErrorOnPriorityScript(): AgentScript {
+  return {
+    onSend: (prompt, agentIndex) => {
+      if (agentIndex === 0 && prompt.includes("JSON")) {
+        return { status: "error", error: { message: "" } };
+      }
+      return { status: "finished", result: "x" };
+    },
+  };
+}
+
 export function failGhWhenMarkingFailed(harness: PollHarness): void {
   const originalGh = harness.deps.gh;
   harness.deps.gh = async (argv, options) => {
