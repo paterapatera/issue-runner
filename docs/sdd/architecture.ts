@@ -3,7 +3,7 @@ import { defineArchitecture } from "./schema/mod.ts";
 // 構成。コードと食い違ったらコードを正とし、こちらを直す。
 // 全部を最初から書き起こさない。大まかに作り、sdd-finish のたびに触った部分を詳しくする。
 export default defineArchitecture({
-  basedOn: "8a4247b1f2d0c60135a2f3922091282a11f5555b",
+  basedOn: "71d024a144f253de94d5373c44430cfdd614e181",
   updatedAt: "2026-10-16",
   summary:
     "issue-runner は、開発者本人が自分のマシンで動かすローカルプロセスである。設定した1つの GitHub リポジトリの issue をポーリングし、Cursor のエージェントをそのリポジトリのチェックアウトで実行する。利用者は1人で、対象リポジトリは1つである。",
