@@ -69,4 +69,31 @@ export default defineTasks<typeof requirements, typeof design>()({
       status: "done",
     },
   },
+  acceptanceGuide: {
+    setup: [
+      { run: "bun install", note: "依存関係を揃える" },
+      { run: "bun test", note: "自動テストでラベル遷移を確かめる" },
+      { run: "gh auth status", note: "GitHub CLI にログインしていること" },
+    ],
+    accounts: [],
+    data: [
+      {
+        acs: ["AC-003", "AC-005"],
+        run: "bun docs/specs/GH-2/acceptance-human.ts",
+        expect:
+          "テスト用 issue に agent:running だけが付き、コメント本文が実行 ID（2f1c0c3e-7b4a-4d1e-9a6b-0c5d8e7f1a2b）そのものである。issue は自動で閉じる",
+      },
+    ],
+    check: [
+      {
+        url: "https://github.com",
+        contains: "GitHub",
+        note: "AC-003 / AC-005 の画面確認は、data 実行後に GitHub の issue 画面でも同じラベルとコメントを目視する",
+      },
+    ],
+    notes: [
+      "repository は GH_ACCEPTANCE_REPO、issue-runner.json の repository、または現在の git リポジトリの順で決まる",
+      "agent:* ラベルが無い場合は acceptance-human.ts が作成する",
+    ],
+  },
 });

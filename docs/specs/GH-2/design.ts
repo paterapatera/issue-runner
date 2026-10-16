@@ -90,8 +90,16 @@ export default defineDesign<typeof requirements>()({
     },
   ],
   impact: {
-    create: ["src/github/index.ts", "src/github/index.test.ts"],
-    modify: ["knip.json"],
+    create: [
+      "src/github/index.ts",
+      "src/github/index.test.ts",
+      "src/github/begin-running.test.ts",
+      "src/github/apply-outcome.test.ts",
+      "src/github/apply-outcome-retry.test.ts",
+      "src/github/test-fixtures.ts",
+      "docs/specs/GH-2/acceptance-human.ts",
+    ],
+    modify: ["knip.json", "docs/specs/GH-2/tasks.ts"],
   },
   decisions: [
     {
