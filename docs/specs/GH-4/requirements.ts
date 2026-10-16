@@ -251,7 +251,7 @@ export default defineRequirements({
       ears: {
         pattern: "unwanted",
         condition: "スキルが人の判断を求めて停止した",
-        response: "失敗として終えず、fast ではない composer-2.5 がその質問に答えなければならない",
+        response: "失敗として終えず、fast ではない composer-2.5 が各質問と回答の組を返さなければならない",
       },
       acceptance: [
         {
@@ -266,9 +266,11 @@ export default defineRequirements({
           id: "AC-018",
           kind: "boundary",
           verifiedBy: "automated",
-          given: ["最初の run が、質問を1件だけ出して停止した"],
-          when: "その質問に答える",
-          then: ["回答が1件である"],
+          given: [
+            "判断の JSON が {\"kind\":\"question\",\"pairs\":[{\"question\":\"未コミット変更をどうしますか\",\"answer\":\"そのまま残す\"}]} である",
+          ],
+          when: "その判断を受け取る",
+          then: ["同じエージェントへ送る組が1件である", "その組の質問が未コミット変更をどうしますかである", "その組の回答がそのまま残すである"],
         },
         {
           id: "AC-035",
@@ -282,9 +284,15 @@ export default defineRequirements({
           id: "AC-037",
           kind: "normal",
           verifiedBy: "automated",
-          given: ["判断の JSON が {\"kind\":\"question\",\"text\":\"未コミット変更をどうしますか\"} である"],
+          given: [
+            "判断の JSON が {\"kind\":\"question\",\"pairs\":[{\"question\":\"未コミット変更をどうしますか\",\"answer\":\"そのまま残す\"},{\"question\":\"ブランチ名はこれでよいか\",\"answer\":\"この名前でよい\"}]} である",
+          ],
           when: "その判断を受け取る",
-          then: ["同じエージェントへ未コミット変更をどうしますかを送る", "プロセスは終了コード 1 で終わらない"],
+          then: [
+            "同じエージェントへ、未コミット変更をどうしますかとその回答そのまま残すを先に送る",
+            "同じエージェントへ、ブランチ名はこれでよいかとその回答この名前でよいを後に送る",
+            "プロセスは終了コード 1 で終わらない",
+          ],
         },
         {
           id: "AC-039",
@@ -298,7 +306,7 @@ export default defineRequirements({
           id: "AC-040",
           kind: "boundary",
           verifiedBy: "automated",
-          given: ["判断の JSON が {\"kind\":\"question\",\"text\":\"\"} である"],
+          given: ["判断の JSON が {\"kind\":\"question\",\"pairs\":[]} である"],
           when: "その判断を受け取る",
           then: ["プロセスが終了コード 1 で終わる", "標準エラーが判断の JSON を読めませんでしたである"],
         },
@@ -546,6 +554,11 @@ export default defineRequirements({
       target: "判断の JSON",
       aspect: "形",
       answer: "質問は {\"kind\":\"question\",\"text\":\"...\"}、完了は {\"kind\":\"done\"}。",
+    },
+    "ANS-016": {
+      target: "判断の JSON",
+      aspect: "質問の形",
+      answer: "完了は done のまま。質問のときは質問内容と回答の組を返す。質問は複数件の場合もある。",
     },
     "ANS-014": {
       target: "判断の JSON",

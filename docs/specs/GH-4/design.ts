@@ -3,7 +3,7 @@ import type requirements from "./requirements.ts";
 
 export default defineDesign<typeof requirements>()({
   overview:
-    "渡されたチェックアウトで local agent を1件だけ動かし、プロンプトは /sdd-impl だけにする。実行結果は fast ではない composer-2.5 の JSON で質問か完了かに分け、質問なら同じエージェントへ text を送る。失敗ならプロセスを終了コード 1 で終える。起動経路からは呼ばない。",
+    "渡されたチェックアウトで local agent を1件だけ動かし、プロンプトは /sdd-impl だけにする。実行結果は fast ではない composer-2.5 の JSON で質問か完了かに分ける。質問なら組になった質問と回答を順に同じエージェントへ送る。失敗ならプロセスを終了コード 1 で終える。起動経路からは呼ばない。",
   asIs:
     "src/main は起動画面を出すだけで、issue をポーリングしない。src/github の listQueuedIssues は agent:queued を番号の昇順で返す。src/work-branch の prepareWorkBranch は起動経路から呼ばれない。@cursor/sdk は package.json に無い。",
   toBe:
@@ -84,7 +84,7 @@ export default defineDesign<typeof requirements>()({
     {
       case: "判断が question である",
       handling:
-        "失敗にしない。text を同じエージェントへ1件送り、wait() する。標準エラーに失敗の文は出さない",
+        "失敗にしない。pairs の質問と回答を、配列の順に同じエージェントへ送ってから wait() する。標準エラーに失敗の文は出さない",
       refs: ["FR-010", "FR-011", "AC-020", "AC-037"],
     },
   ],
@@ -116,9 +116,9 @@ export default defineDesign<typeof requirements>()({
     {
       title: "質問か完了かは別の1回の判断で分ける",
       decidedBy: "ai",
-      context: "ANS-013 の JSON で分ける。/sdd-impl のプロンプトは変えない",
+      context: "完了は kind が done のまま。質問は ANS-016 のとおり、質問と回答の組を1件以上返す。/sdd-impl のプロンプトは変えない",
       decision:
-        "実行が error でも CursorAgentError でもないとき、同じモデルの別エージェントに実行結果を渡して JSON だけを返させる。kind が question で text が空でないときだけ、その text を元のエージェントへ送る。kind が done なら追加で送らない",
+        "実行が error でも CursorAgentError でもないとき、同じモデルの別エージェントに実行結果を渡して JSON だけを返させる。kind が question のとき、pairs の各組を配列の順に元のエージェントへ送る。組が0件、question か answer が空なら判断の JSON を読めなかったものとして扱う。kind が done なら追加で送らない",
       alternatives: [
         { option: "実行中のエージェント自身に JSON を返させる", reason: "/sdd-impl のプロンプトを変えることになる" },
       ],
