@@ -22,8 +22,14 @@ export default defineArchitecture({
     main: {
       path: "src/main/index.ts",
       responsibility:
-        "API キーと issue-runner.json を順に見て、設定画面か起動画面を出す。終了コードを決める",
-      dependsOn: ["config", "tui"],
+        "API キーと issue-runner.json を順に見て、設定画面か起動画面を出す。本番起動では起動画面と startPolling を同時に始める。終了コードを決める",
+      dependsOn: ["config", "tui", "poll"],
+    },
+    poll: {
+      path: "src/poll/index.ts",
+      responsibility:
+        "間隔ごとに agent:queued を1件だけ進める。再起動時は agent:running を agent:failed に反映する。実行 ID、作業ブランチ、runSddCycle、ラベル更新を順に呼ぶ",
+      dependsOn: ["github", "workBranch", "agent"],
     },
     config: {
       path: "src/config/index.ts",
@@ -38,7 +44,7 @@ export default defineArchitecture({
     github: {
       path: "src/github/index.ts",
       responsibility:
-        "issue-runner.json の repository と assignee を引数で受け、gh で agent:* ラベルの列挙・付け替えと実行 ID・失敗理由のコメントを行う。applyOutcome の失敗は step で段階を返す。起動経路からはまだ呼ばない",
+        "repository と assignee を引数で受け、gh で agent:* ラベルの列挙（queued と running）・付け替えと実行 ID・失敗理由のコメントを行う。applyOutcome の失敗は step で段階を返す。呼び出しは src/poll から",
     },
     workBranch: {
       path: "src/work-branch/index.ts",
@@ -49,14 +55,18 @@ export default defineArchitecture({
     agent: {
       path: "src/agent/index.ts",
       responsibility:
-        "listQueuedIssues の先頭1件を local agent で /sdd-impl する。判断用の別エージェントで完了か質問かを JSON で分け、質問には composer-2.5（fast なし）で回答して同じエージェントへ送る。起動失敗と実行中失敗は標準エラー1行と終了コード 1。起動経路からは呼ばない",
+        "pollOnce は listQueuedIssues の先頭1件を /sdd-impl する。runSddCycle は /sdd-impl のあと /sdd-finish を送る。判断用の別エージェントで完了か質問かを JSON で分け、質問には composer-2.5（fast なし）で回答する。本番の SDD サイクルは src/poll が runSddCycle を呼ぶ",
       dependsOn: ["github"],
     },
   },
   layers: [
     { name: "config", rule: "main と tui に依存しない。環境変数と設定ファイルだけを読む" },
     { name: "tui", rule: "config を import しない。@opentui/core を import できるのはこのモジュールだけ" },
-    { name: "main", rule: "config と tui を組み立てて起動する" },
+    { name: "main", rule: "config と tui を組み立てて起動する。本番では poll の startPolling を渡す" },
+    {
+      name: "poll",
+      rule: "main・config・tui に依存しない。github、work-branch、agent を組み立てて間隔ごとに1件を進める",
+    },
     {
       name: "github",
       rule: "main・config・tui に依存しない。GitHub 操作は gh CLI のみ。呼び出し側が repository と assignee を渡す",
@@ -76,6 +86,7 @@ export default defineArchitecture({
     "GH-2 で src/github にラベル遷移を実装した。ポーリングとエージェント実行の接続は別 issue",
     "GH-3 で src/work-branch に作業ブランチの準備（prepareWorkBranch）を実装した。起動経路からは呼ばない",
     "GH-4 で src/agent に local agent の pollOnce を実装した。/sdd-finish は送らない。起動経路からは呼ばない",
+    "GH-5 で src/poll に startPolling を実装し、本番起動から queued の処理と起動画面の実行中表示を接続した。issue 列挙の gh api は GET を明示する",
     "品質ゲートのコマンドは docs/sdd/config.ts に登録済み（Biome、bun --check、dependency-cruiser、Knip、jscpd、bun test）",
   ],
 });
