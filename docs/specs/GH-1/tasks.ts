@@ -53,6 +53,7 @@ export default defineTasks<typeof requirements, typeof design>()({
     "T-003": {
       title: "設定の受け入れ条件をテストする",
       kind: "test",
+      status: "done",
       description:
         "src/config/index.test.ts で loadStartup と saveConfig を呼ぶ。一時ディレクトリに issue-runner.json を置き、gh のログイン名は引数の関数で返す。when にあたる呼び出しの戻り値、終了コード、stderr、書いた JSON の中身を観測する。ソースの文字列検索はしない。API キーの欠如・空・空白、読めない JSON、repository と assignee と model と interval の境界と拒否文言、39文字と100文字、1000文字の model、書き込み失敗を含める。",
       refs: [
@@ -127,7 +128,6 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-101",
         "AC-102",
       ],
-      status: "todo",
     },
     "T-004": {
       title: "設定画面と起動画面を実装する",
