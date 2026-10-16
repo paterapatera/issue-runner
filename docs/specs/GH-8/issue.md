@@ -4,7 +4,7 @@
 - ID: GH-8
 - URL: https://github.com/paterapatera/issue-runner/issues/8
 - 取り込み日時: 2026-10-16T22:59:00+09:00
-- モード: 軽量モード
+- モード: 完全モード
 
 ## 背景・目的
 
