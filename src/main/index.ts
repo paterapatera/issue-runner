@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { Agent } from "@cursor/sdk";
 import type { CreateAgentOptions } from "../agent/index";
 import { type AppConfig, loadStartup, type SettingsDraft, saveConfig } from "../config/index";
@@ -8,6 +8,7 @@ import { defaultGhRunner } from "../github/index";
 import { type StartPollingDeps, startPolling } from "../poll/index";
 import { type CreateRenderer, type RunSettingsOptions, runMain, runSettings } from "../tui/index";
 import type { GitRunner, ReadTextResult } from "../work-branch/index";
+import { sdkAuthReady as checkSdkAuthReady } from "./sdk-auth";
 
 export type BuildPollingDeps = (
   setStatus: (status: "待機中" | "実行中") => void,
@@ -17,6 +18,7 @@ export type RunDeps = {
   cwd: string;
   env: { CURSOR_API_KEY?: string };
   ghLogin: () => Promise<string | undefined>;
+  resolveSdkAuthReady?: () => Promise<boolean>;
   createRenderer?: CreateRenderer;
   onSettingsReady?: RunSettingsOptions["onReady"];
   startPolling?: typeof startPolling;
@@ -81,7 +83,7 @@ async function readTextFile(path: string): Promise<ReadTextResult> {
   }
 }
 
-function sdkCreateAgent(apiKey: string) {
+function sdkCreateAgent(apiKey: string | undefined) {
   return async (options: CreateAgentOptions) => {
     const agent = await Agent.create({
       apiKey,
@@ -106,7 +108,24 @@ function sdkCreateAgent(apiKey: string) {
   };
 }
 
-export function createProductionPollingDeps(cwd: string, apiKey: string): BuildPollingDeps {
+export function resolveProductionApiKey(
+  env: { CURSOR_API_KEY?: string },
+  sdkAuthReady: boolean,
+): string | undefined {
+  const trimmed = (env.CURSOR_API_KEY ?? "").trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  if (sdkAuthReady) {
+    return undefined;
+  }
+  return undefined;
+}
+
+export function createProductionPollingDeps(
+  cwd: string,
+  apiKey: string | undefined,
+): BuildPollingDeps {
   return (setStatus) => ({
     gh: defaultGhRunner,
     git: spawnGit(cwd),
@@ -147,11 +166,16 @@ export async function fetchGhLogin(): Promise<string | undefined> {
   });
 }
 
+async function defaultResolveSdkAuthReady(): Promise<boolean> {
+  return checkSdkAuthReady((path) => stat(path));
+}
+
 function resolveDeps(options?: RunOptions): RunDeps {
   return {
     cwd: options?.deps?.cwd ?? process.cwd(),
     env: options?.deps?.env ?? { CURSOR_API_KEY: process.env.CURSOR_API_KEY },
     ghLogin: options?.deps?.ghLogin ?? fetchGhLogin,
+    resolveSdkAuthReady: options?.deps?.resolveSdkAuthReady ?? defaultResolveSdkAuthReady,
     createRenderer: options?.deps?.createRenderer,
     onSettingsReady: options?.deps?.onSettingsReady,
     startPolling: options?.deps?.startPolling,
@@ -220,8 +244,9 @@ async function runSettingsFlow(
 
 export async function run(options?: RunOptions): Promise<number> {
   const deps = resolveDeps(options);
-  const { cwd, env, ghLogin, createRenderer } = deps;
-  const startup = await loadStartup(cwd, env, ghLogin);
+  const { cwd, env, ghLogin, createRenderer, resolveSdkAuthReady } = deps;
+  const sdkReady = await (resolveSdkAuthReady ?? defaultResolveSdkAuthReady)();
+  const startup = await loadStartup(cwd, env, ghLogin, sdkReady);
 
   if (startup.kind === "exit") {
     if (startup.stderr !== undefined && startup.stderr.length > 0) {
@@ -238,7 +263,8 @@ export async function run(options?: RunOptions): Promise<number> {
 }
 
 if (import.meta.main) {
-  const apiKey = process.env.CURSOR_API_KEY ?? "";
+  const sdkReady = await defaultResolveSdkAuthReady();
+  const apiKey = resolveProductionApiKey({ CURSOR_API_KEY: process.env.CURSOR_API_KEY }, sdkReady);
   const code = await run({
     deps: {
       startPolling,

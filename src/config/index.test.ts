@@ -10,7 +10,13 @@ import {
   validFile,
   writeConfigJson,
 } from "../test-support/fixtures.ts";
-import { type AppConfig, loadStartup, type SettingsDraft, saveConfig } from "./index.ts";
+import {
+  type AppConfig,
+  loadStartup,
+  SDK_AUTH_REQUIRED,
+  type SettingsDraft,
+  saveConfig,
+} from "./index.ts";
 
 const READ_ERROR = "設定ファイルを読めません: issue-runner.json";
 const WRITE_ERROR = "設定ファイルを書けません: issue-runner.json";
@@ -45,7 +51,7 @@ async function loadStartupWithFile(
 ): Promise<Awaited<ReturnType<typeof loadStartup>>> {
   const dir = await createConfigTempDir();
   await writeConfigJson(dir, file);
-  return loadStartup(dir, env, ghAs("octocat"));
+  return loadStartup(dir, env, ghAs("octocat"), false);
 }
 
 function mainConfig(interval: number): AppConfig {
@@ -62,20 +68,32 @@ describe("loadStartup CURSOR_API_KEY", () => {
     ["missing", {}],
     ["empty", { CURSOR_API_KEY: "" }],
     ["whitespace-only", { CURSOR_API_KEY: "   " }],
-  ])("%s key exits with code 1 and no stderr", async (_label, env) => {
+  ])(
+    "%s key with sdkAuthReady false exits with auth message (AC-004, AC-008)",
+    async (_label, env) => {
+      const dir = await createConfigTempDir();
+      await writeConfigJson(dir, validFile);
+      const result = await loadStartup(dir, env, ghAs("octocat"), false);
+      expect(result).toEqual({ kind: "exit", code: 1, stderr: SDK_AUTH_REQUIRED });
+    },
+  );
+
+  test("empty key with sdkAuthReady false and zero-byte auth file (AC-011)", async () => {
     const dir = await createConfigTempDir();
     await writeConfigJson(dir, validFile);
-    const result = await loadStartup(dir, env, ghAs("octocat"));
-    expect(result).toEqual({ kind: "exit", code: 1 });
-    if (result.kind === "exit") {
-      expect(result.stderr).toBeUndefined();
-    }
+    const result = await loadStartup(dir, {}, ghAs("octocat"), false);
+    expect(result).toEqual({ kind: "exit", code: 1, stderr: SDK_AUTH_REQUIRED });
   });
 
   test("trimmed key allows main when config is valid", async () => {
     const dir = await createConfigTempDir();
     await writeConfigJson(dir, validFile);
-    const result = await loadStartup(dir, { CURSOR_API_KEY: `  ${API_KEY}  ` }, ghAs("octocat"));
+    const result = await loadStartup(
+      dir,
+      { CURSOR_API_KEY: `  ${API_KEY}  ` },
+      ghAs("octocat"),
+      false,
+    );
     expect(result).toEqual({
       kind: "main",
       config: {
@@ -92,14 +110,14 @@ describe("loadStartup issue-runner.json read errors", () => {
   test("empty file exits with read error message", async () => {
     const dir = await createConfigTempDir();
     await writeConfigRaw(dir, "");
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result).toEqual({ kind: "exit", code: 1, stderr: READ_ERROR });
   });
 
   test("invalid JSON exits with read error message", async () => {
     const dir = await createConfigTempDir();
     await writeConfigRaw(dir, "{");
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result).toEqual({ kind: "exit", code: 1, stderr: READ_ERROR });
   });
 });
@@ -107,7 +125,7 @@ describe("loadStartup issue-runner.json read errors", () => {
 describe("loadStartup missing config file", () => {
   test("missing file opens settings with defaults and gh login", async () => {
     const dir = await createConfigTempDir();
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("gh-user"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("gh-user"), false);
     expect(result).toEqual({
       kind: "settings",
       draft: {
@@ -121,7 +139,7 @@ describe("loadStartup missing config file", () => {
 
   test("missing file uses empty assignee when gh returns nothing", async () => {
     const dir = await createConfigTempDir();
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs(undefined));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs(undefined), false);
     expect(result).toEqual({
       kind: "settings",
       draft: {
@@ -139,14 +157,14 @@ describe("loadStartup incomplete config in file", () => {
     const dir = await createConfigTempDir();
     const { repository: _r, ...rest } = validFile;
     await writeConfigJson(dir, rest);
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result.kind).toBe("settings");
   });
 
   test("whitespace-only repository in file opens settings", async () => {
     const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, repository: "   " });
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result.kind).toBe("settings");
     if (result.kind === "settings") {
       expect(result.draft.repository).toBe("   ");
@@ -156,21 +174,21 @@ describe("loadStartup incomplete config in file", () => {
   test("repository with internal newline opens settings", async () => {
     const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, repository: "acme\n/widgets" });
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result.kind).toBe("settings");
   });
 
   test("empty assignee in file opens settings", async () => {
     const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, assignee: "" });
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result.kind).toBe("settings");
   });
 
   test("empty model in file opens settings with default in draft", async () => {
     const dir = await createConfigTempDir();
     await writeConfigJson(dir, { ...validFile, model: "" });
-    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"));
+    const result = await loadStartup(dir, { CURSOR_API_KEY: API_KEY }, ghAs("octocat"), false);
     expect(result).toEqual({
       kind: "settings",
       draft: {

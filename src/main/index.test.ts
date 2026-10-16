@@ -2,8 +2,10 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Agent } from "@cursor/sdk";
 import { createTestRenderer } from "@opentui/core/testing";
 import * as agent from "../agent/index.ts";
+import { SDK_AUTH_REQUIRED } from "../config/index.ts";
 import * as github from "../github/index.ts";
 import {
   API_KEY,
@@ -16,7 +18,12 @@ import {
 } from "../test-support/fixtures.ts";
 import { expectValidMainHeader } from "../test-support/main-layout.ts";
 import type { CreateRenderer } from "../tui/index.ts";
-import { type RunDeps, run } from "./index.ts";
+import {
+  createProductionPollingDeps,
+  type RunDeps,
+  resolveProductionApiKey,
+  run,
+} from "./index.ts";
 
 const MAIN_ENTRY = fileURLToPath(new URL("./index.ts", import.meta.url));
 
@@ -77,6 +84,7 @@ function baseDeps(cwd: string, harness: TuiHarness, overrides: Partial<RunDeps> 
     cwd,
     env: { CURSOR_API_KEY: API_KEY },
     ghLogin: ghAs("octocat"),
+    resolveSdkAuthReady: async () => false,
     createRenderer: harness.createRenderer,
     ...overrides,
   };
@@ -92,6 +100,53 @@ function isMainFrame(frame: string): boolean {
 
 function assertNoSecrets(frame: string, secret: string): void {
   expect(frame.includes(secret)).toBe(false);
+}
+
+async function captureAuthRequiredStartup(
+  harness: TuiHarness,
+): Promise<{ code: number; stderr: string }> {
+  const dir = await createMainTempDir();
+  await writeConfigJson(dir, validFile);
+  return captureRunStderr(() =>
+    run({
+      deps: baseDeps(dir, harness, {
+        env: {},
+        resolveSdkAuthReady: async () => false,
+      }),
+    }),
+  );
+}
+
+async function runMainWithSdkAuthAndQuit(env: RunDeps["env"], sdkReady: boolean): Promise<string> {
+  const dir = await createMainTempDir();
+  await writeConfigJson(dir, validFile);
+  const harness = fixedHarness();
+  const runPromise = run({
+    deps: baseDeps(dir, harness, {
+      env,
+      resolveSdkAuthReady: async () => sdkReady,
+    }),
+  });
+  const { setup, frame } = await waitForFrame(harness, isMainFrame);
+  setup.mockInput.pressKey("q");
+  expect(await runPromise).toBe(0);
+  return frame;
+}
+
+async function captureRunStderr(
+  runFn: () => Promise<number>,
+): Promise<{ code: number; stderr: string }> {
+  const chunks: string[] = [];
+  const spy = spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    chunks.push(String(chunk));
+    return true;
+  });
+  try {
+    const code = await runFn();
+    return { code, stderr: chunks.join("") };
+  } finally {
+    spy.mockRestore();
+  }
 }
 
 async function waitForFrame(
@@ -183,6 +238,75 @@ async function spawnMainProcess(
   return proc.exited;
 }
 
+describe("run sdk auth startup main", () => {
+  test("AC-002 main screen without api key on screen when env key is set", async () => {
+    const secret = "sk-example";
+    const frame = await runMainWithSdkAuthAndQuit({ CURSOR_API_KEY: secret }, false);
+    assertNoSecrets(frame, secret);
+  });
+
+  test("AC-005 AC-010 main screen when sdk auth is ready and env key is unset", async () => {
+    const frame = await runMainWithSdkAuthAndQuit({}, true);
+    assertNoSecrets(frame, API_KEY);
+    assertNoSecrets(frame, "sk-");
+  });
+});
+
+describe("run sdk auth startup exit", () => {
+  test("AC-007 exits without TUI and prints auth message when sdk auth is missing", async () => {
+    const harness = fixedHarness();
+    const { code, stderr } = await captureAuthRequiredStartup(harness);
+    expect(code).toBe(1);
+    expect(harness.tuiStarted()).toBe(false);
+    expect(stderr.trim()).toBe(SDK_AUTH_REQUIRED);
+    assertNoSecrets(stderr, API_KEY);
+  });
+
+  test("AC-013 prints full auth message on stderr when terminal is narrow", async () => {
+    const harness = fixedHarness(1, 24);
+    const { stderr } = await captureAuthRequiredStartup(harness);
+    expect(stderr.trim()).toBe(SDK_AUTH_REQUIRED);
+  });
+});
+
+function assertNoGitHubTokenField(frame: string): void {
+  expect(frame.toLowerCase()).not.toContain("token");
+  expect(frame).not.toContain("トークン");
+}
+
+async function runGhLoggedOutScreen(
+  withValidConfig: boolean,
+  predicate: (frame: string) => boolean,
+  quit: (setup: RendererSetup) => void,
+): Promise<void> {
+  const dir = await createMainTempDir();
+  if (withValidConfig) {
+    await writeConfigJson(dir, validFile);
+  }
+  const harness = fixedHarness();
+  const runPromise = run({
+    deps: baseDeps(dir, harness, {
+      env: {},
+      ghLogin: ghAs(undefined),
+      resolveSdkAuthReady: async () => true,
+    }),
+  });
+  const { setup, frame } = await waitForFrame(harness, predicate);
+  assertNoGitHubTokenField(frame);
+  quit(setup);
+  expect(await runPromise).toBe(0);
+}
+
+describe("run sdk auth github", () => {
+  test("AC-009 settings omit GitHub token field when gh is not logged in", async () => {
+    await runGhLoggedOutScreen(false, isSettingsFrame, (setup) => setup.mockInput.pressCtrlC());
+  });
+
+  test("AC-009 main screen omit GitHub token field when gh is not logged in", async () => {
+    await runGhLoggedOutScreen(true, isMainFrame, (setup) => setup.mockInput.pressKey("q"));
+  });
+});
+
 describe("run exit without TUI", () => {
   test.each([
     ["missing", {}],
@@ -199,8 +323,9 @@ describe("run exit without TUI", () => {
 
   test("spawned process exits 1 when API key is missing", async () => {
     const dir = await createMainTempDir();
+    const home = await createTempDir("issue-runner-home-");
     await writeConfigJson(dir, validFile);
-    const code = await spawnMainProcess(dir, { CURSOR_API_KEY: undefined });
+    const code = await spawnMainProcess(dir, { CURSOR_API_KEY: undefined, HOME: home });
     expect(code).toBe(1);
   });
 });
@@ -375,6 +500,41 @@ describe("run without startPolling", () => {
     expect(runSddCycle).not.toHaveBeenCalled();
     listRunningIssues.mockRestore();
     runSddCycle.mockRestore();
+  });
+});
+
+async function expectAgentCreateApiKey(
+  productionApiKey: string | undefined,
+  expectedApiKey: string | undefined,
+): Promise<void> {
+  const mockAgent = {
+    send: async () => ({
+      wait: async () => ({ status: "completed" as const, result: "", error: undefined }),
+    }),
+  };
+  const createSpy = spyOn(Agent, "create").mockResolvedValue(mockAgent as never);
+  const build = createProductionPollingDeps("/cwd", productionApiKey);
+  const polling = build(() => {});
+  await polling.createAgent({
+    modelId: "composer-2.5",
+    cwd: "/cwd",
+    settingSources: ["project"],
+  });
+  expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ apiKey: expectedApiKey }));
+  createSpy.mockRestore();
+}
+
+describe("createProductionPollingDeps apiKey", () => {
+  test("AC-003 passes trimmed apiKey to Agent.create", async () => {
+    const apiKey = resolveProductionApiKey({ CURSOR_API_KEY: " sk-example " }, false);
+    expect(apiKey).toBe("sk-example");
+    await expectAgentCreateApiKey(apiKey, "sk-example");
+  });
+
+  test("AC-006 passes undefined apiKey when key is whitespace-only and sdk auth is ready", async () => {
+    const apiKey = resolveProductionApiKey({ CURSOR_API_KEY: "   " }, true);
+    expect(apiKey).toBeUndefined();
+    await expectAgentCreateApiKey(apiKey, undefined);
   });
 });
 

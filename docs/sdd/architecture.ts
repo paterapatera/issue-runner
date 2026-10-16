@@ -22,7 +22,7 @@ export default defineArchitecture({
     main: {
       path: "src/main/index.ts",
       responsibility:
-        "API キーと issue-runner.json を順に見て、設定画面か起動画面を出す。本番起動では起動画面と startPolling を同時に始める。終了コードを決める",
+        "SDK 認証ファイルのサイズを調べて loadStartup に渡し、API キーと issue-runner.json を順に見て設定画面か起動画面を出す。本番起動では起動画面と startPolling を同時に始め、apiKey が無いときは SDK の保存済み認証に任せる。login.ts は Cursor.auth.login() の入口。終了コードを決める",
       dependsOn: ["config", "tui", "poll"],
     },
     poll: {
@@ -34,7 +34,7 @@ export default defineArchitecture({
     config: {
       path: "src/config/index.ts",
       responsibility:
-        "issue-runner.json の読み書きと、repository、interval、model、assignee、CURSOR_API_KEY の判定。gh からログイン名を取る",
+        "issue-runner.json の読み書きと、repository、interval、model、assignee、CURSOR_API_KEY（trim 後）と sdkAuthReady の判定。認証不足時の標準エラー文言。gh からログイン名を取る。認証ファイルは開かない",
     },
     tui: {
       path: "src/tui/index.ts",
@@ -87,6 +87,7 @@ export default defineArchitecture({
     "GH-3 で src/work-branch に作業ブランチの準備（prepareWorkBranch）を実装した。起動経路からは呼ばない",
     "GH-4 で src/agent に local agent の pollOnce を実装した。/sdd-finish は送らない。起動経路からは呼ばない",
     "GH-5 で src/poll に startPolling を実装し、本番起動から queued の処理と起動画面の実行中表示を接続した。issue 列挙の gh api は GET を明示する",
+    "GH-7 で CURSOR_API_KEY 優先と SDK 認証ファイルによる起動、bun src/main/login.ts を追加した（ADR-0014）",
     "品質ゲートのコマンドは docs/sdd/config.ts に登録済み（Biome、bun --check、dependency-cruiser、Knip、jscpd、bun test）",
   ],
 });
