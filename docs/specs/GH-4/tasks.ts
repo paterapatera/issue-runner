@@ -48,7 +48,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-036",
         "AC-038",
       ],
-      status: "doing",
+      status: "done",
     },
     "T-004": {
       title: "起動失敗と実行中の失敗で終了する",
@@ -65,7 +65,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/agent/index.test.ts に失敗のテストを足す。CursorAgentError の文が missing CURSOR_API_KEY のとき、終了コード 1、標準エラーがその文、wait() は呼ばれない、issue 4 は起動しないことを観測する。result.status が error で文が tool failed のとき、wait() は1回、終了コード 1、標準エラーが tool failed、issue 4 は起動しないことを観測する。2つの失敗で標準エラーの文が違うことを観測する。起動失敗では「受け入れテストは合格。PRを作成する。」と /sdd-finish を送らないことを観測する。",
       refs: ["FR-004", "FR-009", "FR-013"],
       verifies: ["AC-014", "AC-015", "AC-016", "AC-030", "AC-032", "AC-033", "AC-034"],
-      status: "todo",
+      status: "doing",
     },
     "T-006": {
       title: "質問への回答を同じエージェントへ送る",
