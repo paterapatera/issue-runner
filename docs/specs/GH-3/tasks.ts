@@ -13,7 +13,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/main、src/config、src/tui は変更しない。src/main/index.test.ts が CURSOR_API_KEY 無しで終了コード 1 になり TUI を出さないこと、src/tui/index.test.ts がリポジトリ、間隔の分、モデル、担当者、状態 待機中、終了キー q を表示すること、src/config/index.test.ts が issue-runner.json のキー repository、interval、model、assignee を読むことを、既存の bun test のまま確かめる。prepareWorkBranch を run から呼ばない。",
       refs: ["INV-001"],
       verifies: ["INV-001"],
-      status: "todo",
+      status: "done",
     },
     "T-002": {
       title: "applyOutcome の失敗に段階を返す",
