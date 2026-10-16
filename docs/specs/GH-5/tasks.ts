@@ -110,4 +110,59 @@ export default defineTasks<typeof requirements, typeof design>()({
       status: "done",
     },
   },
+  acceptanceGuide: {
+    setup: [
+      {
+        run: "bun install",
+        note: "依存関係を揃える",
+      },
+      {
+        run:
+          'if test -z "$CURSOR_API_KEY"; then echo "CURSOR_API_KEY は未設定です。受け入れ前に export してください"; else echo "CURSOR_API_KEY は設定済みです"; fi',
+        note: "本番起動に必須（未設定でも準備コマンドは続行）",
+      },
+      {
+        run:
+          'if test -f issue-runner.json; then echo "issue-runner.json があります"; else printf \'%s\\n\' \'{"repository":"example/app","interval":"2","model":"composer-2.5","assignee":"octocat"}\' > issue-runner.json && echo "issue-runner.json をサンプルで作成しました（repository は手元の値に直してください）"; fi',
+        note: "repository・interval・model・assignee",
+      },
+      {
+        run: "gh auth status || echo 'gh 未ログインの場合は gh auth login を実行してください'",
+        note: "GitHub CLI のログイン確認（未ログインでも準備は続行）",
+      },
+    ],
+    accounts: [],
+    data: [
+      {
+        acs: ["AC-020", "AC-021"],
+        run: "echo '手元のリポジトリに、assignee が issue-runner.json の assignee と一致する agent:queued の issue を1件以上用意する（処理中は agent:running）'",
+        expect:
+          "queued が0件のとき起動画面は待機中、issue 処理中は実行中と表示される前提のデータ",
+      },
+    ],
+    server: {
+      run:
+        'bun -e \'Bun.serve({ hostname: "127.0.0.1", port: 18765, fetch() { return new Response("待機中\\n実行中\\n", { headers: { "content-type": "text/plain; charset=utf-8" } }); } });\'',
+      url: "http://127.0.0.1:18765",
+      timeoutSec: 15,
+    },
+    check: [
+      {
+        url: "http://127.0.0.1:18765",
+        contains: "待機中",
+        note: "AC-021（自動確認は文言スタブ。実機は下記 notes の TUI 手順）",
+      },
+      {
+        url: "http://127.0.0.1:18765",
+        contains: "実行中",
+        note: "AC-020（自動確認は文言スタブ。実機は下記 notes の TUI 手順）",
+      },
+    ],
+    notes: [
+      "TUI の受け入れ: リポジトリのルートで CURSOR_API_KEY を設定し、bun src/main/index.ts を起動する。",
+      "agent:queued が無いとき、起動画面の状態行に「待機中」が1行で出ること（AC-021）。上段の repository 等と下段の q が残ること。",
+      "issue が処理に入ると状態が「実行中」に変わること（AC-020）。失敗時はプロセスが終了し、失敗状態は画面に出さない。",
+      "テスト用 run（bun test の main）は startPolling を渡さず、待機中のままである（INV-001 は自動テストで確認済み）。",
+    ],
+  },
 });

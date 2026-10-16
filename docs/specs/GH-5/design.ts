@@ -182,10 +182,17 @@ export default defineDesign<typeof requirements>()({
   impact: {
     create: ["src/poll/index.ts", "src/poll/index.test.ts"],
     modify: [
+      "knip.json",
       "src/main/index.ts",
+      "src/main/index.test.ts",
       "src/tui/index.ts",
+      "src/tui/index.test.ts",
       "src/github/index.ts",
+      "src/github/index.test.ts",
       "src/agent/index.ts",
+      "src/agent/test-fixtures.ts",
+      "src/agent/run-sdd-cycle.test.ts",
+      "src/poll/test-fixtures.ts",
     ],
   },
   decisions: [
