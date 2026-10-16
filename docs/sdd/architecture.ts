@@ -38,7 +38,13 @@ export default defineArchitecture({
     github: {
       path: "src/github/index.ts",
       responsibility:
-        "issue-runner.json の repository と assignee を引数で受け、gh で agent:* ラベルの列挙・付け替えと実行 ID・失敗理由のコメントを行う。起動経路からはまだ呼ばない",
+        "issue-runner.json の repository と assignee を引数で受け、gh で agent:* ラベルの列挙・付け替えと実行 ID・失敗理由のコメントを行う。applyOutcome の失敗は step で段階を返す。起動経路からはまだ呼ばない",
+    },
+    workBranch: {
+      path: "src/work-branch/index.ts",
+      responsibility:
+        "起動ディレクトリの docs/sdd/config.ts を読み spec 名を決め、origin の該当ブランチが1件のとき git checkout する。失敗時は applyOutcome で agent:failed とコメントを付け、標準エラーは決めた日本語1行。起動経路からは呼ばない",
+      dependsOn: ["github"],
     },
   },
   layers: [
@@ -49,11 +55,16 @@ export default defineArchitecture({
       name: "github",
       rule: "main・config・tui に依存しない。GitHub 操作は gh CLI のみ。呼び出し側が repository と assignee を渡す",
     },
+    {
+      name: "work-branch",
+      rule: "main・config・tui に依存しない。git は git コマンドのみ。ラベルとコメントは github の applyOutcome に任せる",
+    },
   ],
   notes: [
     "Web の画面は無い。config.ts の ui は false",
     "GH-1 で起動、設定、TUI の骨組みを実装した",
     "GH-2 で src/github にラベル遷移を実装した。ポーリングとエージェント実行の接続は別 issue",
+    "GH-3 で src/work-branch に作業ブランチの準備（prepareWorkBranch）を実装した。起動経路からは呼ばない",
     "品質ゲートのコマンドは docs/sdd/config.ts に登録済み（Biome、bun --check、dependency-cruiser、Knip、jscpd、bun test）",
   ],
 });

@@ -177,18 +177,20 @@ function failureCommentBody(reason: string): string {
   return reason.length > 0 ? reason : UNEXPECTED_FAILURE_MESSAGE;
 }
 
+export type ApplyOutcomeFailureStep = "label" | "comment" | "list";
+
 async function applyFailedWithComment(
   repository: string,
   issueNumber: number,
   reason: string,
   run: GhRunner,
-): Promise<{ ok: true } | { ok: false }> {
+): Promise<{ ok: true } | { ok: false; step: ApplyOutcomeFailureStep }> {
   const labeled = await setStateLabel(repository, issueNumber, "agent:failed", run);
   if (!labeled) {
-    return { ok: false };
+    return { ok: false, step: "label" };
   }
   const commented = await addIssueComment(repository, issueNumber, failureCommentBody(reason), run);
-  return commented ? { ok: true } : { ok: false };
+  return commented ? { ok: true } : { ok: false, step: "comment" };
 }
 
 export type ApplyOutcome =
@@ -201,10 +203,10 @@ export async function applyOutcome(
   issueNumber: number,
   outcome: ApplyOutcome,
   deps: { run: GhRunner },
-): Promise<{ ok: true } | { ok: false }> {
+): Promise<{ ok: true } | { ok: false; step: ApplyOutcomeFailureStep }> {
   if (outcome.type === "done") {
     const labeled = await setStateLabel(repository, issueNumber, "agent:done", deps.run);
-    return labeled ? { ok: true } : { ok: false };
+    return labeled ? { ok: true } : { ok: false, step: "label" };
   }
 
   if (outcome.type === "failed") {
@@ -219,15 +221,15 @@ async function applyRetryableOutcome(
   issueNumber: number,
   reason: string,
   run: GhRunner,
-): Promise<{ ok: true } | { ok: false }> {
+): Promise<{ ok: true } | { ok: false; step: ApplyOutcomeFailureStep }> {
   const comments = await listIssueComments(repository, issueNumber, run);
   if (comments === undefined) {
-    return { ok: false };
+    return { ok: false, step: "list" };
   }
   const requeueCount = Math.max(0, countRunIdComments(comments) - 1);
   if (requeueCount < 3) {
     const labeled = await setStateLabel(repository, issueNumber, "agent:queued", run);
-    return labeled ? { ok: true } : { ok: false };
+    return labeled ? { ok: true } : { ok: false, step: "label" };
   }
   return applyFailedWithComment(repository, issueNumber, reason, run);
 }
