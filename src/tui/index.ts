@@ -24,6 +24,16 @@ export type MainView = {
   quitKey: string;
 };
 
+export type CreateRenderer = () => Promise<CliRenderer>;
+
+export type RunMainOptions = {
+  createRenderer?: CreateRenderer;
+};
+
+export type RunSettingsOptions = {
+  createRenderer?: CreateRenderer;
+};
+
 type SettingsInputs = {
   repository: InputRenderable;
   interval: InputRenderable;
@@ -126,8 +136,10 @@ async function finishRenderer(renderer: CliRenderer): Promise<void> {
   await renderer.closed;
 }
 
-export async function runMain(view: MainView): Promise<"quit"> {
-  const renderer = await createCliRenderer({ exitOnCtrlC: false });
+export async function runMain(view: MainView, options?: RunMainOptions): Promise<"quit"> {
+  const createRenderer =
+    options?.createRenderer ?? (() => createCliRenderer({ exitOnCtrlC: false }));
+  const renderer = await createRenderer();
   return new Promise((resolve) => {
     let settled = false;
     const finish = () => {
@@ -159,8 +171,11 @@ export async function runMain(view: MainView): Promise<"quit"> {
 export async function runSettings(
   draft: SettingsDraft,
   submit: (next: SettingsDraft) => Promise<{ ok: true } | { ok: false; message: string }>,
+  options?: RunSettingsOptions,
 ): Promise<"saved" | "cancel"> {
-  const renderer = await createCliRenderer({ exitOnCtrlC: false });
+  const createRenderer =
+    options?.createRenderer ?? (() => createCliRenderer({ exitOnCtrlC: false }));
+  const renderer = await createRenderer();
   return new Promise((resolve) => {
     let settled = false;
     const finish = (result: "saved" | "cancel") => {

@@ -183,7 +183,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-099",
         "AC-100",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-006": {
       title: "起動の流れを実装する",
