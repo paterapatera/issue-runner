@@ -65,7 +65,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/agent/index.test.ts に失敗のテストを足す。CursorAgentError の文が missing CURSOR_API_KEY のとき、終了コード 1、標準エラーがその文、wait() は呼ばれない、issue 4 は起動しないことを観測する。result.status が error で文が tool failed のとき、wait() は1回、終了コード 1、標準エラーが tool failed、issue 4 は起動しないことを観測する。2つの失敗で標準エラーの文が違うことを観測する。起動失敗では「受け入れテストは合格。PRを作成する。」と /sdd-finish を送らないことを観測する。",
       refs: ["FR-004", "FR-009", "FR-013"],
       verifies: ["AC-014", "AC-015", "AC-016", "AC-030", "AC-032", "AC-033", "AC-034"],
-      status: "doing",
+      status: "done",
     },
     "T-006": {
       title: "質問への回答を同じエージェントへ送る",
@@ -73,7 +73,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "実行が error でも CursorAgentError でもないとき、同じ createAgent の条件（composer-2.5、fast は false）で別エージェントを1回呼び、実行結果から JSON だけを返させる。/sdd-impl のプロンプトは変えない。kind が question のとき、pairs の各組を配列の順に元のエージェントへ送り、そのあと wait() する。質問文に（推奨）の選択肢が1つあるときは、JSON の answer が別の文でも、送る回答はその推奨の選択肢にし、文から（推奨）を除く。組が0件、question か answer が空、JSON でない、kind が question でも done でもないときは exit(1) し、標準エラーは「判断の JSON を読めませんでした」にする。回答生成が失敗したときは exit(1) し、標準エラーはその失敗文にし、元のエージェントへは送らない。質問の送信では終了コード 1 にしない。",
       refs: ["FR-010", "FR-011", "FR-014", "LocalAgent"],
-      status: "todo",
+      status: "done",
     },
     "T-007": {
       title: "質問と推奨の受け入れ条件をテストする",
