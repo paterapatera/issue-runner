@@ -3,7 +3,7 @@ import { defineRequirements } from "../../sdd/schema/mod.ts";
 export default defineRequirements({
   issue: "GH-3",
   summary:
-    "切り替える前の対象チェックアウトの issueIdPrefix と GitHub issue の番号から spec 名を決める。接頭辞が無いときは、spec 名を issue 番号だけにする。対応するリモートブランチがちょうど1つのときだけそのブランチをチェックアウトし、ラベルは変えない。該当ブランチが0件または複数のときは、エージェントを起動せず agent:failed だけにする。",
+    "issue-runner は、切り替える前の起動ディレクトリの issueIdPrefix と issue 番号から spec 名を決め、origin の該当ブランチが1つのときだけチェックアウトする。agent:failed にしたときは終了コード 1 で、標準エラーに失敗の理由を1行出す。",
   functional: {
     "FR-001": {
       title: "spec 名",
@@ -656,6 +656,125 @@ export default defineRequirements({
       },
       priority: "must",
     },
+    "FR-019": {
+      title: "failed のときは終了コード 1 と標準エラー",
+      ears: {
+        pattern: "event",
+        trigger: "作業ブランチの準備が agent:failed と失敗コメントを残して終わった",
+        response:
+          "プロセスを終了コード 1 で終え、標準エラーにそのコメントと同じ1行を出さなければならない",
+      },
+      acceptance: [
+        {
+          id: "AC-035",
+          kind: "normal",
+          verifiedBy: "automated",
+          given: ["issue 番号が 111 である", "起動したディレクトリに docs/sdd/config.ts が無い"],
+          when: "その issue の作業ブランチを準備する",
+          then: ["プロセスの終了コードが 1 である", "標準エラーの出力が docs/sdd/config.ts がありません の1行である"],
+        },
+        {
+          id: "AC-036",
+          kind: "boundary",
+          verifiedBy: "automated",
+          given: ["spec 名が GH-3 である", "origin のブランチが main だけである"],
+          when: "作業ブランチを準備する",
+          then: ["プロセスの終了コードが 1 である", "標準エラーの出力が 該当する作業ブランチがありません の1行である"],
+        },
+        {
+          id: "AC-037",
+          kind: "error",
+          verifiedBy: "automated",
+          given: ["spec 名が GH-3 である", "origin のブランチに gh-3-a と gh-3-b がある"],
+          when: "作業ブランチを準備する",
+          then: ["プロセスの終了コードが 1 である", "標準エラーの出力が 該当する作業ブランチが複数あります の1行である"],
+        },
+      ],
+      priority: "must",
+    },
+    "FR-020": {
+      title: "git の失敗は failed にする",
+      ears: {
+        pattern: "unwanted",
+        condition: "origin のブランチ一覧の取得、またはチェックアウトが失敗した",
+        response:
+          "ブランチを切り替えず、その GitHub issue の状態ラベルを agent:failed だけにしなければならない",
+      },
+      acceptance: [
+        {
+          id: "AC-038",
+          kind: "normal",
+          verifiedBy: "human",
+          given: [
+            "GitHub の issue にラベル agent:queued が付いている",
+            "起動したディレクトリの現在のブランチが main である",
+            "origin のブランチ一覧の取得が失敗する",
+          ],
+          when: "作業ブランチを準備する",
+          then: [
+            "GitHub のその issue にラベル agent:failed が付いている",
+            "agent:queued、agent:running、agent:done は付いていない",
+            "現在のブランチ名は main のままである",
+          ],
+        },
+        {
+          id: "AC-039",
+          kind: "boundary",
+          verifiedBy: "human",
+          given: [
+            "spec 名が GH-3 である",
+            "origin のブランチが gh-3-print-date だけ該当する",
+            "起動したディレクトリの現在のブランチが main である",
+            "そのブランチへのチェックアウトが失敗する",
+          ],
+          when: "作業ブランチを準備する",
+          then: ["現在のブランチ名は main のままである", "GitHub のその issue にラベル agent:failed が付いている"],
+        },
+      ],
+      notApplicable: {
+        error: "git の失敗は、この要件では失敗として扱う。起動処理自身の失敗は起きない",
+      },
+      priority: "must",
+    },
+    "FR-021": {
+      title: "git の失敗のコメントと標準エラー",
+      ears: {
+        pattern: "unwanted",
+        condition: "origin のブランチ一覧の取得、またはチェックアウトが失敗した",
+        response:
+          "GitHub のコメントと標準エラーの両方に、作業ブランチを用意できませんでした という1行を出さなければならない",
+      },
+      acceptance: [
+        {
+          id: "AC-040",
+          kind: "normal",
+          verifiedBy: "human",
+          given: [
+            "origin のブランチ一覧の取得が失敗する",
+            "その失敗の文に secret-token が含まれる",
+            "その issue のコメントが 0 件である",
+          ],
+          when: "作業ブランチを準備する",
+          then: ["コメントの本文が 作業ブランチを用意できませんでした である"],
+        },
+        {
+          id: "AC-041",
+          kind: "error",
+          verifiedBy: "automated",
+          given: ["origin のブランチ一覧の取得が失敗する", "その失敗の文に secret-token が含まれる"],
+          when: "作業ブランチを準備する",
+          then: [
+            "プロセスの終了コードが 1 である",
+            "標準エラーの出力が 作業ブランチを用意できませんでした の1行である",
+            "標準エラーに secret-token は含まれない",
+          ],
+        },
+      ],
+      notApplicable: {
+        boundary: "文面はこの1行で、長さの境目は無い",
+      },
+      priority: "must",
+    },
   },
   nonFunctional: {},
   invariants: {
@@ -722,7 +841,7 @@ export default defineRequirements({
     },
     errorFeedback: {
       result: "considered",
-      note: "失敗時のラベルは AC-003、AC-009、AC-010、AC-011、AC-026。コメント本文は AC-027、AC-028、AC-029。成功時は AC-030 でコメントを増やさない。ラベル更新の失敗は AC-031 と AC-032。コメントを付けられないときは AC-033 と AC-034",
+      note: "失敗時のラベルは AC-003、AC-009、AC-010、AC-011、AC-026、AC-038。コメント本文は AC-027、AC-028、AC-029、AC-040。agent:failed の終了コードと標準エラーは AC-035、AC-036、AC-037、AC-041。ラベル更新の失敗は AC-031 と AC-032。コメントを付けられないときは AC-033 と AC-034",
     },
     existingData: {
       result: "considered",
@@ -790,6 +909,24 @@ export default defineRequirements({
         long: { decidedBy: ["AC-034"], basis: { answer: "ANS-018" } },
         lineBreak: { decidedBy: ["AC-034"], basis: { answer: "ANS-018" } },
         empty: { decidedBy: ["AC-034"], basis: { answer: "ANS-018" } },
+      },
+    },
+    {
+      target: "git の失敗のコメント",
+      kind: "textDisplay",
+      aspects: {
+        long: { decidedBy: ["AC-040"], basis: { answer: "ANS-019" } },
+        lineBreak: { decidedBy: ["AC-040"], basis: { answer: "ANS-019" } },
+        empty: { decidedBy: ["AC-040"], basis: { answer: "ANS-019" } },
+      },
+    },
+    {
+      target: "git の失敗の標準エラー",
+      kind: "textDisplay",
+      aspects: {
+        long: { decidedBy: ["AC-041"], basis: { answer: "ANS-019" } },
+        lineBreak: { decidedBy: ["AC-041"], basis: { answer: "ANS-019" } },
+        empty: { decidedBy: ["AC-041"], basis: { answer: "ANS-019" } },
       },
     },
   ],
@@ -883,6 +1020,12 @@ export default defineRequirements({
       target: "失敗コメント",
       aspect: "付けられないとき",
       answer: "終了コード 1。標準エラーに「コメントを付けられませんでした」と1行出す。GitHub の失敗文は出さない",
+    },
+    "ANS-019": {
+      target: "git の失敗",
+      aspect: "結果",
+      answer:
+        "agent:failed にする。終了コード 1。標準エラーとコメントは「作業ブランチを用意できませんでした」。agent:failed のときは常に終了コード 1 で、標準エラーに失敗の理由を出す",
     },
   },
   assumptions: [
