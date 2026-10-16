@@ -21,7 +21,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/agent/index.ts に pollOnce を置く。引数は repository、assignee、cwd。deps は gh（GhRunner）、running、createAgent、writeStderr、exit。running.current が true のときは createAgent を呼ばない。false のときは src/github の listQueuedIssues を呼び、昇順の先頭1件だけを起動する。一覧が失敗したときは listQueuedIssues の標準エラーに任せ、exit を呼ばずエージェントも起動しない。起動中は running.current を true にし、完了のあと false に戻す。createAgent には cwd、settingSources が [\"project\"] だけ、modelId が composer-2.5、fast が false を渡す。最初に送るプロンプトは /sdd-impl だけにする。spec 名が空でも同じ文にする。その run で wait() を1回呼ぶ。判断用の別呼び出しが {\"kind\":\"done\"} を返したら追加のプロンプトは送らない。「受け入れテストは合格。PRを作成する。」と /sdd-finish は送らない。prepareWorkBranch、beginRunning、applyOutcome は呼ばない。run からは呼ばない。knip.json の entry に src/agent/index.ts を足す。src/main、src/config、src/tui、src/github、src/work-branch は変更しない。",
       refs: ["FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-008", "FR-013", "LocalAgent"],
-      status: "todo",
+      status: "doing",
     },
     "T-003": {
       title: "起動と完了の受け入れ条件をテストする",

@@ -5,7 +5,8 @@
     "src/config/index.ts",
     "src/tui/index.ts",
     "src/github/index.ts",
-    "src/work-branch/index.ts"
+    "src/work-branch/index.ts",
+    "src/agent/index.ts"
   ],
   "project": ["src/**/*.ts"],
   "ignoreDependencies": ["@opentui/core", "@swc/core", "jscpd"]
