@@ -29,7 +29,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/main/index.test.ts の run で次を実行して観測する。有効な issue-runner.json と CURSOR_API_KEY が sk-example で認証ファイルが無いとき、起動画面が出て画面に sk-example が無い（AC-002）。キー未設定かつ sdkAuthReady true のとき起動画面が出て API キー値が無い（AC-005、AC-010 の起動ケース）。キー未設定かつ sdkAuthReady false のとき TUI が無く、標準エラーが「Cursor にログインするか、環境変数 CURSOR_API_KEY を設定してください」の全文である（AC-007、AC-013）。gh 未ログインでも GitHub トークンの入力欄が画面に無い（AC-009）。設定画面の項目は repository、interval、model、assignee のままである既存テストを変えずに残す（INV-002）。キーがあるときの起動画面に上段の設定、中段の状態、下段の終了キー q があり q で終了する既存の観測を維持する（BNFR-001）。",
       refs: ["FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "INV-002", "Main"],
       verifies: ["AC-002", "AC-005", "AC-007", "AC-009", "AC-010", "AC-013", "INV-002", "BNFR-001"],
-      status: "todo",
+      status: "doing",
     },
     "T-004": {
       title: "bun src/main/login.ts の成功と失敗をテストする",
