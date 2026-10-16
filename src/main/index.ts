@@ -14,6 +14,10 @@ export type BuildPollingDeps = (
   setStatus: (status: "待機中" | "実行中") => void,
 ) => StartPollingDeps;
 
+export const SETTINGS_SAVE_FAILED = "設定を保存できないため終了します";
+
+export type RunSettingsFlow = typeof runSettings;
+
 export type RunDeps = {
   cwd: string;
   env: { CURSOR_API_KEY?: string };
@@ -21,6 +25,7 @@ export type RunDeps = {
   resolveSdkAuthReady?: () => Promise<boolean>;
   createRenderer?: CreateRenderer;
   onSettingsReady?: RunSettingsOptions["onReady"];
+  runSettings?: RunSettingsFlow;
   startPolling?: typeof startPolling;
   buildPollingDeps?: BuildPollingDeps;
 };
@@ -178,6 +183,7 @@ function resolveDeps(options?: RunOptions): RunDeps {
     resolveSdkAuthReady: options?.deps?.resolveSdkAuthReady ?? defaultResolveSdkAuthReady,
     createRenderer: options?.deps?.createRenderer,
     onSettingsReady: options?.deps?.onSettingsReady,
+    runSettings: options?.deps?.runSettings,
     startPolling: options?.deps?.startPolling,
     buildPollingDeps: options?.deps?.buildPollingDeps,
   };
@@ -215,9 +221,9 @@ async function runSettingsFlow(
   draft: SettingsDraft,
   createRenderer?: CreateRenderer,
 ): Promise<number> {
-  const { cwd, onSettingsReady } = deps;
+  const { cwd, onSettingsReady, runSettings: runSettingsFn = runSettings } = deps;
   let savedConfig: AppConfig | undefined;
-  const result = await runSettings(
+  const result = await runSettingsFn(
     draft,
     async (next) => {
       const saved = await saveConfig(cwd, next);
@@ -237,6 +243,7 @@ async function runSettingsFlow(
     return 0;
   }
   if (savedConfig === undefined) {
+    process.stderr.write(`${SETTINGS_SAVE_FAILED}\n`);
     return 1;
   }
   return runMainScreen(savedConfig, deps, createRenderer);

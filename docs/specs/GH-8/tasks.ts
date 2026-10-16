@@ -59,7 +59,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/poll/index.test.ts に、優先度判定が error で message が無いとき標準エラーが「予期せぬ失敗が発生しました」で終了コード 1 になるテストを足す。runSddCycle に相当する実行が error で message が無いときも、標準エラーは同じ日本語1行、終了コードは 1、失敗コメントの理由は空のままであることを観測する。理由が tool failed の既存テストは、標準エラーが tool failed のままであることを維持する。",
       refs: ["FR-003", "startPolling"],
       verifies: ["AC-008", "AC-010"],
-      status: "todo",
+      status: "done",
     },
     "T-006": {
       title: "設定が残っていない終了理由を run に足す",
@@ -67,7 +67,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/main/index.ts の RunDeps に任意の runSettings を足し、未指定なら src/tui の runSettings を使う。runSettingsFlow で戻りが saved かつ savedConfig が無いとき、process.stderr.write で「設定を保存できないため終了します」を1行書いて 1 を返す。cancel のときは 0 のままで、この文を書かない。saveConfig の入力エラーは画面内メッセージのまま、プロセスを終了させない。",
       refs: ["FR-003", "INV-002", "INV-003", "run"],
-      status: "todo",
+      status: "done",
     },
     "T-007": {
       title: "設定終了とキャンセルをテストする",
