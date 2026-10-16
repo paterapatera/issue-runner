@@ -48,7 +48,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-036",
         "AC-038",
       ],
-      status: "todo",
+      status: "doing",
     },
     "T-004": {
       title: "起動失敗と実行中の失敗で終了する",
