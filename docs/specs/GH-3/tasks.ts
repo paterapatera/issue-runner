@@ -50,7 +50,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "FR-020",
         "FR-021",
       ],
-      status: "todo",
+      status: "doing",
     },
     "T-004": {
       title: "spec 名の決定をテストする",
