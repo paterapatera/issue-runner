@@ -6,6 +6,8 @@ const CONFIG_FILE = "issue-runner.json";
 const DEFAULT_MODEL = "composer-2.5";
 const READ_ERROR = "設定ファイルを読めません: issue-runner.json";
 const WRITE_ERROR = "設定ファイルを書けません: issue-runner.json";
+export const SDK_AUTH_REQUIRED =
+  "Cursor にログインするか、環境変数 CURSOR_API_KEY を設定してください";
 
 export type AppConfig = {
   repository: string;
@@ -236,13 +238,16 @@ export async function loadStartup(
   cwd: string,
   env: { CURSOR_API_KEY?: string },
   ghLogin: () => Promise<string | undefined>,
+  sdkAuthReady: boolean,
 ): Promise<LoadStartupResult> {
   const apiKey = z
     .string()
     .trim()
     .parse(env.CURSOR_API_KEY ?? "");
   if (apiKey.length === 0) {
-    return { kind: "exit", code: 1 };
+    if (!sdkAuthReady) {
+      return { kind: "exit", code: 1, stderr: SDK_AUTH_REQUIRED };
+    }
   }
 
   const path = join(cwd, CONFIG_FILE);

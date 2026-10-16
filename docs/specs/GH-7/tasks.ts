@@ -11,7 +11,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/config/index.ts の loadStartup に第4引数 sdkAuthReady を足す。trim 後に空でない CURSOR_API_KEY のときは従来どおり設定ファイルの判定へ進む。空のときは sdkAuthReady が false なら { kind: 'exit', code: 1, stderr: 'Cursor にログインするか、環境変数 CURSOR_API_KEY を設定してください' } を返す。src/main/sdk-auth.ts に sdkAuthReady(stat) を作り、homedir() の .cursor/sdk/auth.json のサイズが 1 バイト以上のときだけ true、無い・0バイト・stat 失敗は false とし、中身は読まない。src/main/index.ts の loadStartup 呼び出しにその結果を渡す。src/config/index.test.ts で空文字・空白のみ・sdkAuthReady false の終了と文言（AC-004、AC-008、AC-011）を実行して観測する。src/main/sdk-auth.test.ts で 0 バイトと 1 バイトと欠落を stat の差し替えで観測する。JSON が読めないときの「設定ファイルを読めません: issue-runner.json」の既存テストは文言を変えずに残す（INV-001）。既存の「stderr なし」期待は、認証不足の新しい文言に更新する。",
       refs: ["FR-002", "FR-003", "FR-004", "INV-001", "Config", "Main"],
       verifies: ["AC-004", "AC-008", "AC-011", "INV-001"],
-      status: "todo",
+      status: "done",
     },
     "T-002": {
       title: "エージェントへ渡す API キーを環境変数優先にする",

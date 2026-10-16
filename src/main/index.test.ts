@@ -77,6 +77,7 @@ function baseDeps(cwd: string, harness: TuiHarness, overrides: Partial<RunDeps> 
     cwd,
     env: { CURSOR_API_KEY: API_KEY },
     ghLogin: ghAs("octocat"),
+    resolveSdkAuthReady: async () => false,
     createRenderer: harness.createRenderer,
     ...overrides,
   };
@@ -199,8 +200,9 @@ describe("run exit without TUI", () => {
 
   test("spawned process exits 1 when API key is missing", async () => {
     const dir = await createMainTempDir();
+    const home = await createTempDir("issue-runner-home-");
     await writeConfigJson(dir, validFile);
-    const code = await spawnMainProcess(dir, { CURSOR_API_KEY: undefined });
+    const code = await spawnMainProcess(dir, { CURSOR_API_KEY: undefined, HOME: home });
     expect(code).toBe(1);
   });
 });
