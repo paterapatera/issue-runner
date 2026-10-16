@@ -101,10 +101,11 @@ export default defineDesign<typeof requirements>()({
     writeStderr: (line: string) => void;
     exit: (code: number) => void;
     setStatus: (status: "待機中" | "実行中") => void;
+    schedule: (delayMs: number, run: () => void) => void;
   },
 ): Promise<void>`,
       description:
-        "最初に agent:running を agent:failed へ反映する。実行 ID が無いときは標準エラーを予期せぬ失敗が発生しましたにして exit(1) する。そのあと intervalMinutes 分ごとに、実行中でなければ候補を1件だけ始める。処理中は setStatus に実行中、それ以外は待機中を渡す",
+        "最初に agent:running を agent:failed へ反映する。実行 ID が無いときは標準エラーを予期せぬ失敗が発生しましたにして exit(1) する。そのあと schedule で intervalMinutes 分ごとに、実行中でなければ候補を1件だけ始める。処理中は setStatus に実行中、それ以外は待機中を渡す",
     },
     listRunningIssues: {
       component: "IssueLabels",
@@ -275,7 +276,7 @@ export default defineDesign<typeof requirements>()({
     },
     testability: {
       result: "considered",
-      note: "gh、git、createAgent、setStatus、exit を引数で差し替える。テストは src/poll/index.test.ts",
+      note: "gh、git、createAgent、setStatus、exit、schedule を引数で差し替える。テストは src/poll/index.test.ts",
     },
     rollback: {
       result: "considered",
