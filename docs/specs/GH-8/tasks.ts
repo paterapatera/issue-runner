@@ -42,7 +42,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/agent/poll-once-failures.test.ts に、実行結果が error で error.message が無いとき pollOnce が終了コード 1 になり、writeStderr が「予期せぬ失敗が発生しました」の1行になるテストを足す。失敗理由が tool failed のときは、その1行のまま日本語へ置き換わらない既存の観測を維持する。",
       refs: ["FR-003", "pollOnce"],
       verifies: ["AC-008", "AC-010"],
-      status: "todo",
+      status: "done",
     },
     "T-004": {
       title: "startPolling の空の失敗理由を標準エラーだけ日本語にする",
