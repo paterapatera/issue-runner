@@ -102,6 +102,21 @@ async function captureMainFrame(width: number, height: number, view: MainView): 
   );
 }
 
+function createSettingsTestHarness(): {
+  createRenderer: CreateRenderer;
+  waitForReady: () => Promise<RendererSetup>;
+} {
+  let setup: RendererSetup | undefined;
+  const createRenderer: CreateRenderer = async () => {
+    setup = await createTestRenderer({ width: 80, height: 24, exitOnCtrlC: false });
+    return setup.renderer;
+  };
+  return {
+    createRenderer,
+    waitForReady: () => waitForSetup(() => setup),
+  };
+}
+
 async function captureSettingsFrame(
   width: number,
   height: number,
@@ -212,6 +227,37 @@ describe("runMain default layout", () => {
 });
 
 describe("runSettings rendering", () => {
+  test("Ctrl+C cancels the form", async () => {
+    const harness = createSettingsTestHarness();
+    const runPromise = runSettings(defaultSettingsDraft(), async () => ({ ok: true }), {
+      createRenderer: harness.createRenderer,
+    });
+    const ready = await harness.waitForReady();
+    await ready.flush();
+    ready.mockInput.pressCtrlC();
+    await ready.flush();
+    expect(await runPromise).toBe("cancel");
+  });
+
+  test("Enter submits the form", async () => {
+    let submitted: SettingsDraft | undefined;
+    const harness = createSettingsTestHarness();
+    const runPromise = runSettings(
+      defaultSettingsDraft(),
+      async (draft) => {
+        submitted = draft;
+        return { ok: true };
+      },
+      { createRenderer: harness.createRenderer },
+    );
+    const ready = await harness.waitForReady();
+    await ready.flush();
+    ready.mockInput.pressEnter();
+    await ready.flush();
+    expect(await runPromise).toBe("saved");
+    expect(submitted).toEqual(defaultSettingsDraft());
+  });
+
   test("settings form at width 80", async () => {
     const frame = await captureSettingsFrame(80, 24, defaultSettingsDraft());
     expect(frame.includes("repository")).toBe(true);

@@ -241,6 +241,22 @@ export default defineDesign<typeof requirements>()({
       ],
       adr: false,
     },
+    {
+      title: "品質ゲートの対象を実行コードに絞る",
+      decidedBy: "ai",
+      context:
+        "docs/sdd と docs/specs は SDD の記述用で、実行時の型や lint の基準とずれることがある。テストは bun test で実行し、bun --check はアプリ本体の型だけを先に通したい",
+      decision:
+        "biome.json の includes で docs/sdd と docs/specs を除外する。tsconfig.json の exclude で src/**/*.test.ts を bun --check の対象から外す",
+      relaxesQualityGate: ["biome.json", "tsconfig.json"],
+      alternatives: [
+        {
+          option: "テストも bun --check に含める",
+          reason: "GH-1 ではテストの型は bun test の実行で十分とし、ゲートの失敗要因を減らすため",
+        },
+      ],
+      adr: false,
+    },
   ],
   traceability: {
     "FR-001": ["main", "tui"],

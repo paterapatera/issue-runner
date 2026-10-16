@@ -4,6 +4,7 @@ import {
   type CliRenderer,
   createCliRenderer,
   InputRenderable,
+  InputRenderableEvents,
   TextRenderable,
   t,
 } from "@opentui/core";
@@ -132,6 +133,20 @@ function isCancelKey(sequence: string): boolean {
   return sequence === "\x03";
 }
 
+function isCtrlC(key: { ctrl: boolean; name: string }): boolean {
+  return key.ctrl && key.name === "c";
+}
+
+/** Cancel when focused inputs consume parsed key events (e.g. Kitty keyboard in Cursor terminal). */
+function bindCancelOnCtrlC(renderer: CliRenderer, onCancel: () => void): void {
+  renderer.keyInput.on("keypress", (key) => {
+    if (isCtrlC(key)) {
+      key.preventDefault();
+      onCancel();
+    }
+  });
+}
+
 async function finishRenderer(renderer: CliRenderer): Promise<void> {
   renderer.destroy();
   await renderer.closed;
@@ -154,11 +169,12 @@ export async function runMain(view: MainView, options?: RunMainOptions): Promise
     renderer.root.focusable = true;
     renderer.root.focus();
     renderer.root.onKeyDown = (key) => {
-      if ((key.ctrl && key.name === "c") || isQuitKey(key)) {
+      if (isCtrlC(key) || isQuitKey(key)) {
         key.preventDefault();
         finish();
       }
     };
+    bindCancelOnCtrlC(renderer, finish);
     renderer.prependInputHandler((sequence) => {
       if (isCancelKey(sequence)) {
         finish();
@@ -195,12 +211,19 @@ export async function runSettings(
       }
       setMessage(result.message);
     };
-    for (const input of Object.values(inputs)) {
-      input.onSubmit = () => {
+    const bindSubmit = (input: InputRenderable) => {
+      const onEnter = () => {
         void trySubmit();
       };
+      // InputRenderable.submit() emits ENTER but does not invoke onSubmit (unlike Textarea).
+      input.on(InputRenderableEvents.ENTER, onEnter);
+      input.onSubmit = onEnter;
+    };
+    for (const input of Object.values(inputs)) {
+      bindSubmit(input);
     }
     options?.onReady?.({ submit: trySubmit });
+    bindCancelOnCtrlC(renderer, () => finish("cancel"));
     renderer.prependInputHandler((sequence) => {
       if (isCancelKey(sequence)) {
         finish("cancel");
