@@ -2,6 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Agent } from "@cursor/sdk";
 import { createTestRenderer } from "@opentui/core/testing";
 import * as agent from "../agent/index.ts";
 import * as github from "../github/index.ts";
@@ -16,7 +17,12 @@ import {
 } from "../test-support/fixtures.ts";
 import { expectValidMainHeader } from "../test-support/main-layout.ts";
 import type { CreateRenderer } from "../tui/index.ts";
-import { type RunDeps, run } from "./index.ts";
+import {
+  createProductionPollingDeps,
+  type RunDeps,
+  resolveProductionApiKey,
+  run,
+} from "./index.ts";
 
 const MAIN_ENTRY = fileURLToPath(new URL("./index.ts", import.meta.url));
 
@@ -377,6 +383,41 @@ describe("run without startPolling", () => {
     expect(runSddCycle).not.toHaveBeenCalled();
     listRunningIssues.mockRestore();
     runSddCycle.mockRestore();
+  });
+});
+
+async function expectAgentCreateApiKey(
+  productionApiKey: string | undefined,
+  expectedApiKey: string | undefined,
+): Promise<void> {
+  const mockAgent = {
+    send: async () => ({
+      wait: async () => ({ status: "completed" as const, result: "", error: undefined }),
+    }),
+  };
+  const createSpy = spyOn(Agent, "create").mockResolvedValue(mockAgent as never);
+  const build = createProductionPollingDeps("/cwd", productionApiKey);
+  const polling = build(() => {});
+  await polling.createAgent({
+    modelId: "composer-2.5",
+    cwd: "/cwd",
+    settingSources: ["project"],
+  });
+  expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ apiKey: expectedApiKey }));
+  createSpy.mockRestore();
+}
+
+describe("createProductionPollingDeps apiKey", () => {
+  test("AC-003 passes trimmed apiKey to Agent.create", async () => {
+    const apiKey = resolveProductionApiKey({ CURSOR_API_KEY: " sk-example " }, false);
+    expect(apiKey).toBe("sk-example");
+    await expectAgentCreateApiKey(apiKey, "sk-example");
+  });
+
+  test("AC-006 passes undefined apiKey when key is whitespace-only and sdk auth is ready", async () => {
+    const apiKey = resolveProductionApiKey({ CURSOR_API_KEY: "   " }, true);
+    expect(apiKey).toBeUndefined();
+    await expectAgentCreateApiKey(apiKey, undefined);
   });
 });
 

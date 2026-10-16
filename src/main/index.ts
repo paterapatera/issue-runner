@@ -83,7 +83,7 @@ async function readTextFile(path: string): Promise<ReadTextResult> {
   }
 }
 
-function sdkCreateAgent(apiKey: string) {
+function sdkCreateAgent(apiKey: string | undefined) {
   return async (options: CreateAgentOptions) => {
     const agent = await Agent.create({
       apiKey,
@@ -108,7 +108,24 @@ function sdkCreateAgent(apiKey: string) {
   };
 }
 
-export function createProductionPollingDeps(cwd: string, apiKey: string): BuildPollingDeps {
+export function resolveProductionApiKey(
+  env: { CURSOR_API_KEY?: string },
+  sdkAuthReady: boolean,
+): string | undefined {
+  const trimmed = (env.CURSOR_API_KEY ?? "").trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  if (sdkAuthReady) {
+    return undefined;
+  }
+  return undefined;
+}
+
+export function createProductionPollingDeps(
+  cwd: string,
+  apiKey: string | undefined,
+): BuildPollingDeps {
   return (setStatus) => ({
     gh: defaultGhRunner,
     git: spawnGit(cwd),
@@ -246,7 +263,8 @@ export async function run(options?: RunOptions): Promise<number> {
 }
 
 if (import.meta.main) {
-  const apiKey = process.env.CURSOR_API_KEY ?? "";
+  const sdkReady = await defaultResolveSdkAuthReady();
+  const apiKey = resolveProductionApiKey({ CURSOR_API_KEY: process.env.CURSOR_API_KEY }, sdkReady);
   const code = await run({
     deps: {
       startPolling,

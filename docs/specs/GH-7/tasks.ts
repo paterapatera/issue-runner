@@ -20,7 +20,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/main/index.ts の createProductionPollingDeps の apiKey を string | undefined にする。trim 後に空でない CURSOR_API_KEY のときはその文字列を Agent.create に渡す。空で sdkAuthReady が true のときは apiKey: undefined を渡す。src/main/index.test.ts で、前後に空白が1文字ずつの sk-example を渡したときエージェントへ渡る値が sk-example であること（AC-003）と、空白だけのキーかつ sdkAuthReady true のとき apiKey が undefined であること（AC-006）を、createAgent の差し替えで実行して観測する。",
       refs: ["FR-002", "FR-003", "Main"],
       verifies: ["AC-003", "AC-006"],
-      status: "todo",
+      status: "done",
     },
     "T-003": {
       title: "認証の有無で起動画面か終了になることをテストする",
