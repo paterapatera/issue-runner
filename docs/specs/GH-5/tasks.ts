@@ -107,7 +107,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/main/index.test.ts で、startPolling を渡さない run が起動画面に待機中を出し、listRunningIssues も runSddCycle も呼ばないことを観測する。CURSOR_API_KEY が無いときは終了コード 1 で TUI を出さない既存のテストを変えない。src/config/index.test.ts と設定画面のテストも変えない。issue-runner.json のキーが repository、interval、model、assignee のままであることを、既存のテストの成功で観測する。",
       refs: ["FR-008", "Startup"],
       verifies: ["INV-001"],
-      status: "todo",
+      status: "done",
     },
   },
 });
