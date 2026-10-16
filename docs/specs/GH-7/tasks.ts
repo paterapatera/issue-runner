@@ -38,7 +38,45 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/main/login.ts に runLogin を作り、import.meta.main から終了コードで終わる。既定の login は @cursor/sdk 1.0.37 の Cursor.auth.login() を呼ぶ。src/main/login.test.ts では login を差し替える。成功したら 0 を返す（AC-001 の実行口。ホームに auth.json ができることは人が bun src/main/login.ts を1回実行して確かめる）。login が失敗したら終了コード 1 で、標準エラーは「Cursor へのログインに失敗しました」の全文だけであり、例外の message は出さない（AC-012、AC-014）。knip.json の entry に src/main/login.ts を足す。docs/sdd/adr/ADR-0002.ts の decision を、trim 後に空でない CURSOR_API_KEY を優先し、空のときは SDK の保存済み認証で起動する、に更新する。",
       refs: ["FR-001", "Main"],
       verifies: ["AC-001", "AC-012", "AC-014"],
-      status: "doing",
+      status: "done",
     },
+  },
+  acceptanceGuide: {
+    setup: [
+      { run: "bun install", note: "依存関係" },
+      {
+        run: "bun docs/sdd/scripts/gate.ts",
+        note: "受け入れ前に品質ゲートが通ること",
+      },
+    ],
+    server: {
+      run: 'bun -e \'Bun.serve({ hostname: "127.0.0.1", port: 18767, fetch: () => new Response("GH-7: login-only — bun src/main/login.ts のあと CURSOR_API_KEY なしで bun src/main/index.ts を起動し待機中を確認") })\'',
+      url: "http://127.0.0.1:18767/",
+      timeoutSec: 30,
+    },
+    accounts: [],
+    data: [
+      {
+        acs: ["AC-001"],
+        run: "echo '（人）AC-001: auth.json 無しで bun src/main/login.ts を1回実行'",
+        expect: "成功時 ~/.cursor/sdk/auth.json が 1 バイト以上になる（Cursor 認証は人が操作）",
+      },
+    ],
+    check: [
+      {
+        url: "http://127.0.0.1:18767/",
+        contains: "login-only",
+        note: "AC-010: 手順に login のみで env 無し起動の案内が含まれる",
+      },
+    ],
+    notes: [
+      "共通: 起動はリポジトリルートで issue-runner.json を置いたディレクトリから bun src/main/index.ts（または bun run で同等）。終了は q。",
+      "AC-001: CURSOR_API_KEY 未設定・~/.cursor/sdk/auth.json 無しで bun src/main/login.ts を1回実行し auth.json ができること。",
+      "AC-002: CURSOR_API_KEY=sk-example、auth.json を退避して bun src/main/index.ts → 待機中が出て sk-example が画面に無いこと。",
+      "AC-005 / AC-010: login のみ済み（auth.json 1 バイト以上）・CURSOR_API_KEY 未設定で bun src/main/index.ts → 待機中が出て API キー値が画面に無いこと。",
+      "AC-007: auth.json 無し・CURSOR_API_KEY 未設定で起動 → TUI 無し・標準エラー1行（Cursor にログインするか…）。",
+      "AC-009: sdk ログイン済み・gh 未ログインで起動 → GitHub トークン入力欄が無いこと（設定画面・起動画面）。",
+      "AC-013 / AC-014: 狭い端末幅でも認証不足・ログイン失敗の日本語1文が途中で切れないこと。",
+    ],
   },
 });
