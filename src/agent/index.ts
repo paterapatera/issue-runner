@@ -4,6 +4,7 @@ import { type GhRunner, listQueuedIssues } from "../github/index";
 export { CursorAgentError };
 
 const IMPL_PROMPT = "/sdd-impl";
+const FINISH_PROMPT = "/sdd-finish";
 const JUDGMENT_JSON_UNREADABLE = "判断の JSON を読めませんでした";
 const FORBIDDEN_PROMPTS = ["受け入れテストは合格。PRを作成する。", "/sdd-finish"];
 
@@ -129,10 +130,10 @@ async function sendAndWait(session: LocalAgentSession, message: string): Promise
 async function requestJudgment(
   cwd: string,
   executionResult: string,
-  deps: PollOnceDeps,
+  createAgent: (options: CreateAgentOptions) => Promise<LocalAgentSession>,
 ): Promise<Judgment | { failed: true; message: string }> {
   try {
-    const judge = await deps.createAgent(agentOptions(cwd));
+    const judge = await createAgent(agentOptions(cwd));
     const prompt = `次の local agent の実行結果を読み、JSON だけを返してください。完了なら {"kind":"done"}、人の確認が必要なら {"kind":"question","pairs":[{"question":"...","answer":"..."}]} の形にしてください。\n\n${executionResult}`;
     const result = await sendAndWait(judge, prompt);
     if (result.status === "error") {
@@ -159,22 +160,12 @@ function failWithMessage(deps: PollOnceDeps, message: string): { ok: false; exit
   return { ok: false, exitCode: 1 };
 }
 
-async function handleJudgment(
-  cwd: string,
+async function sendQuestionAnswers(
   session: LocalAgentSession,
-  executionResult: string,
-  deps: PollOnceDeps,
-): Promise<{ ok: true } | { ok: false; exitCode: 1 }> {
-  const judgment = await requestJudgment(cwd, executionResult, deps);
-  if ("failed" in judgment) {
-    return failWithMessage(deps, judgment.message);
-  }
-  if (judgment.kind === "done") {
-    return { ok: true };
-  }
-
+  pairs: { question: string; answer: string }[],
+): Promise<void> {
   let lastRun: AgentRun | undefined;
-  for (const pair of judgment.pairs) {
+  for (const pair of pairs) {
     const answer = recommendedAnswer(pair.question, pair.answer);
     assertForbiddenPrompt(answer);
     lastRun = await session.send(answer);
@@ -182,7 +173,73 @@ async function handleJudgment(
   if (lastRun !== undefined) {
     await lastRun.wait();
   }
+}
+
+async function handleJudgment(
+  cwd: string,
+  session: LocalAgentSession,
+  executionResult: string,
+  deps: PollOnceDeps,
+): Promise<{ ok: true } | { ok: false; exitCode: 1 }> {
+  const judgment = await requestJudgment(cwd, executionResult, deps.createAgent);
+  if ("failed" in judgment) {
+    return failWithMessage(deps, judgment.message);
+  }
+  if (judgment.kind === "question") {
+    await sendQuestionAnswers(session, judgment.pairs);
+  }
   return { ok: true };
+}
+
+async function handleJudgmentCycle(
+  cwd: string,
+  session: LocalAgentSession,
+  executionResult: string,
+  createAgent: (options: CreateAgentOptions) => Promise<LocalAgentSession>,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const judgment = await requestJudgment(cwd, executionResult, createAgent);
+  if ("failed" in judgment) {
+    return { ok: false, message: judgment.message };
+  }
+  if (judgment.kind === "question") {
+    await sendQuestionAnswers(session, judgment.pairs);
+  }
+  return { ok: true };
+}
+
+export async function runSddCycle(
+  cwd: string,
+  deps: { createAgent: (options: CreateAgentOptions) => Promise<LocalAgentSession> },
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const session = await deps.createAgent(agentOptions(cwd));
+    const implResult = await sendAndWait(session, IMPL_PROMPT);
+    if (implResult.status === "error") {
+      return { ok: false, message: implResult.error?.message ?? "" };
+    }
+
+    const judged = await handleJudgmentCycle(
+      cwd,
+      session,
+      implResult.result ?? "",
+      deps.createAgent,
+    );
+    if (!judged.ok) {
+      return judged;
+    }
+
+    const finishRun = await session.send(FINISH_PROMPT);
+    const finishResult = await finishRun.wait();
+    if (finishResult.status === "error") {
+      return { ok: false, message: finishResult.error?.message ?? "" };
+    }
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof CursorAgentError) {
+      return { ok: false, message: error.message };
+    }
+    throw error;
+  }
 }
 
 export async function pollOnce(
