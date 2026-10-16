@@ -10,10 +10,11 @@ describe("runLogin", () => {
   });
 
   test("AC-012 AC-014 returns 1 with fixed message when login fails", async () => {
+    const secret = "network timeout from sdk";
     const lines: string[] = [];
     const code = await runLogin({
       login: async () => {
-        throw new Error("network timeout from sdk");
+        throw new Error(secret);
       },
       writeStderr: (line) => {
         lines.push(line);
@@ -21,5 +22,6 @@ describe("runLogin", () => {
     });
     expect(code).toBe(1);
     expect(lines).toEqual([LOGIN_FAILED]);
+    expect(lines.join("").includes(secret)).toBe(false);
   });
 });

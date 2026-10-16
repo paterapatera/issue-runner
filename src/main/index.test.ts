@@ -102,15 +102,25 @@ function assertNoSecrets(frame: string, secret: string): void {
   expect(frame.includes(secret)).toBe(false);
 }
 
+function expectAuthRequiredProcessExit(
+  harness: TuiHarness,
+  captured: { code: number; stderr: string },
+): void {
+  expect(captured.code).toBe(1);
+  expect(harness.tuiStarted()).toBe(false);
+  expect(captured.stderr.trim()).toBe(SDK_AUTH_REQUIRED);
+}
+
 async function captureAuthRequiredStartup(
   harness: TuiHarness,
+  env: RunDeps["env"] = {},
 ): Promise<{ code: number; stderr: string }> {
   const dir = await createMainTempDir();
   await writeConfigJson(dir, validFile);
   return captureRunStderr(() =>
     run({
       deps: baseDeps(dir, harness, {
-        env: {},
+        env,
         resolveSdkAuthReady: async () => false,
       }),
     }),
@@ -255,11 +265,9 @@ describe("run sdk auth startup main", () => {
 describe("run sdk auth startup exit", () => {
   test("AC-007 exits without TUI and prints auth message when sdk auth is missing", async () => {
     const harness = fixedHarness();
-    const { code, stderr } = await captureAuthRequiredStartup(harness);
-    expect(code).toBe(1);
-    expect(harness.tuiStarted()).toBe(false);
-    expect(stderr.trim()).toBe(SDK_AUTH_REQUIRED);
-    assertNoSecrets(stderr, API_KEY);
+    const captured = await captureAuthRequiredStartup(harness);
+    expectAuthRequiredProcessExit(harness, captured);
+    assertNoSecrets(captured.stderr, API_KEY);
   });
 
   test("AC-013 prints full auth message on stderr when terminal is narrow", async () => {
@@ -308,19 +316,39 @@ describe("run sdk auth github", () => {
 });
 
 describe("run exit without TUI", () => {
-  test.each([
-    ["missing", {}],
-    ["empty", { CURSOR_API_KEY: "" }],
-    ["whitespace-only", { CURSOR_API_KEY: "   " }],
-  ])("AC-004 %s API key exits 1 without starting TUI", async (_label, env) => {
-    const dir = await createMainTempDir();
-    await writeConfigJson(dir, validFile);
+  test("AC-001 AC-004 missing API key exits 1 with auth message and no TUI", async () => {
     const harness = fixedHarness();
-    const code = await run({ deps: baseDeps(dir, harness, { env }) });
+    const captured = await captureAuthRequiredStartup(harness);
+    expectAuthRequiredProcessExit(harness, captured);
+    expect(isSettingsFrame(captured.stderr)).toBe(false);
+    expect(isMainFrame(captured.stderr)).toBe(false);
+  });
+
+  test("AC-002 whitespace-only API key exits 1 with auth message only", async () => {
+    const harness = fixedHarness();
+    const { code, stderr } = await captureAuthRequiredStartup(harness, { CURSOR_API_KEY: "   " });
+    expect(code).toBe(1);
+    expect(harness.tuiStarted()).toBe(false);
+    expect(stderr.trim()).toBe(SDK_AUTH_REQUIRED);
+    expect(stderr.trim()).not.toBe("   ");
+  });
+
+  test("AC-003 auth exit stderr does not leak secrets", async () => {
+    const harness = fixedHarness();
+    const { stderr } = await captureAuthRequiredStartup(harness);
+    assertNoSecrets(stderr, "sk-live-secret");
+    assertNoSecrets(stderr, API_KEY);
+  });
+
+  test("AC-004 empty API key exits 1 without starting TUI", async () => {
+    const harness = fixedHarness();
+    const { code } = await captureAuthRequiredStartup(harness, { CURSOR_API_KEY: "" });
     expect(code).toBe(1);
     expect(harness.tuiStarted()).toBe(false);
   });
+});
 
+describe("run exit spawned process", () => {
   test("spawned process exits 1 when API key is missing", async () => {
     const dir = await createMainTempDir();
     const home = await createTempDir("issue-runner-home-");

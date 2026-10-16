@@ -25,7 +25,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "INV-005",
         "NFR-001",
       ],
-      status: "todo",
+      status: "doing",
     },
     "T-002": {
       title: "pollOnce の空の失敗理由を日本語にする",
