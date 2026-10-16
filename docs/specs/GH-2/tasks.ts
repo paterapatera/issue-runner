@@ -57,7 +57,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-019",
         "AC-021",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-004": {
       title: "再キューと4回目の失敗を実装しテストする",

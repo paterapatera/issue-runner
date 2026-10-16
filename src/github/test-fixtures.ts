@@ -40,3 +40,14 @@ export function labelsFromEdit(argv: string[]): { removed: string[]; added: stri
   }
   return { removed, added };
 }
+
+export function commentBodies(calls: GhCall[]): string[] {
+  return calls
+    .filter((call) => call.argv[0] === "issue" && call.argv[1] === "comment")
+    .map((call) => call.stdin ?? "");
+}
+
+export function addedStateLabel(calls: GhCall[]): string | undefined {
+  const edit = calls.find((call) => call.argv[0] === "issue" && call.argv[1] === "edit");
+  return labelsFromEdit(edit?.argv ?? []).added[0];
+}

@@ -168,3 +168,42 @@ export async function beginRunning(
   }
   return { ok: true, runId };
 }
+
+const UNEXPECTED_FAILURE_MESSAGE = "予期せぬ失敗が発生しました";
+
+function failureCommentBody(reason: string): string {
+  return reason.length > 0 ? reason : UNEXPECTED_FAILURE_MESSAGE;
+}
+
+export type ApplyOutcome =
+  | { type: "done" }
+  | { type: "failed"; reason: string }
+  | { type: "retryable"; reason: string };
+
+export async function applyOutcome(
+  repository: string,
+  issueNumber: number,
+  outcome: ApplyOutcome,
+  deps: { run: GhRunner },
+): Promise<{ ok: true } | { ok: false }> {
+  if (outcome.type === "done") {
+    const labeled = await setStateLabel(repository, issueNumber, "agent:done", deps.run);
+    return labeled ? { ok: true } : { ok: false };
+  }
+
+  if (outcome.type === "failed") {
+    const labeled = await setStateLabel(repository, issueNumber, "agent:failed", deps.run);
+    if (!labeled) {
+      return { ok: false };
+    }
+    const commented = await addIssueComment(
+      repository,
+      issueNumber,
+      failureCommentBody(outcome.reason),
+      deps.run,
+    );
+    return commented ? { ok: true } : { ok: false };
+  }
+
+  return { ok: false };
+}
