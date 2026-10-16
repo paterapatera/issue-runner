@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/main/index.ts", "src/config/index.ts", "src/tui/index.ts"],
+  "entry": ["src/main/index.ts", "src/config/index.ts", "src/tui/index.ts", "src/github/index.ts"],
   "project": ["src/**/*.ts"],
   "ignoreDependencies": ["@opentui/core", "@swc/core", "jscpd"]
 }

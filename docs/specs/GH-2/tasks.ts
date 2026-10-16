@@ -25,7 +25,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-029",
         "AC-030",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-002": {
       title: "running への遷移と実行 ID コメントを実装しテストする",
