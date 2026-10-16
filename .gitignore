@@ -1,3 +1,6 @@
 # SDD: 人向けのHTMLの出力先
 .sdd/
 node_modules/
+
+# ローカルの監視設定（リポジトリ直下）
+issue-runner.json
