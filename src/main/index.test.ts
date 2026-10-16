@@ -23,6 +23,7 @@ import {
   type RunDeps,
   resolveProductionApiKey,
   run,
+  SETTINGS_SAVE_FAILED,
 } from "./index.ts";
 
 const MAIN_ENTRY = fileURLToPath(new URL("./index.ts", import.meta.url));
@@ -461,6 +462,56 @@ describe("run settings flow open and save", () => {
       unknown
     >;
     expect(saved).toEqual(validFile);
+  });
+});
+
+async function captureRunWithMockSettingsResult(
+  settingsResult: "saved" | "cancel",
+): Promise<{ code: number; stderr: string }> {
+  const dir = await createMainTempDir();
+  const harness = fixedHarness();
+  return captureRunStderr(() =>
+    run({
+      deps: baseDeps(dir, harness, {
+        runSettings: async () => settingsResult,
+      }),
+    }),
+  );
+}
+
+describe("run settings save failure exit", () => {
+  test("AC-009 saved without config exits 1 with save failed message", async () => {
+    const { code, stderr } = await captureRunWithMockSettingsResult("saved");
+    expect(code).toBe(1);
+    expect(stderr.trim()).toBe(SETTINGS_SAVE_FAILED);
+  });
+
+  test("INV-003 cancel exits 0 without save failed message", async () => {
+    const { code, stderr } = await captureRunWithMockSettingsResult("cancel");
+    expect(code).toBe(0);
+    expect(stderr).toBe("");
+  });
+
+  test("INV-002 invalid repository stays on settings without exit 1", async () => {
+    const dir = await createMainTempDir();
+    const harness = fixedHarness();
+    const { code, stderr } = await captureRunStderr(() =>
+      run({
+        deps: {
+          ...baseDeps(dir, harness),
+          onSettingsReady: ({ submit }) => {
+            void (async () => {
+              const { setup } = await waitForFrame(harness, isSettingsFrame);
+              await submit();
+              await flushInput(setup);
+              setup.mockInput.pressCtrlC();
+            })();
+          },
+        },
+      }),
+    );
+    expect(code).toBe(0);
+    expect(stderr.includes(SETTINGS_SAVE_FAILED)).toBe(false);
   });
 });
 

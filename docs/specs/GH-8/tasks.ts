@@ -76,7 +76,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/main/index.test.ts で、注入した runSettings が submit を成功させずに saved を返すとき、run の終了コードが 1 で、標準エラーが「設定を保存できないため終了します」の1行になることを観測する。設定画面のキャンセルは終了コード 0 で、この文を標準エラーへ出さないことを観測する。不正な repository の保存は画面内のエラーのままで、終了コード 1 にならないことを観測する。",
       refs: ["FR-003", "INV-002", "INV-003", "run"],
       verifies: ["AC-009", "INV-002", "INV-003"],
-      status: "todo",
+      status: "done",
     },
   },
 });
