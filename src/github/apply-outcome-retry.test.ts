@@ -54,6 +54,23 @@ describe("applyOutcome retryable", () => {
     ]);
   });
 
+  test("comment list failure returns step list", async () => {
+    const { run } = commentsAwareGhRunner(uuidComments(1));
+    const failingRun = async (argv: string[], options?: { stdin?: string }) => {
+      if (argv[0] === "api" && argv[2]?.includes("/comments")) {
+        return { ok: false };
+      }
+      return run(argv, options);
+    };
+    const result = await applyOutcome(
+      "example/app",
+      54,
+      { type: "retryable", reason: "temporary" },
+      { run: failingRun },
+    );
+    expect(result).toEqual({ ok: false, step: "list" });
+  });
+
   test("AC-033 adds failure comment at retry limit", async () => {
     const { run, calls } = commentsAwareGhRunner(uuidComments(4));
     await applyOutcome(

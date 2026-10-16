@@ -21,7 +21,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/github/index.ts の applyOutcome の失敗を { ok: false, step } にする。done と failed と再キューのラベル更新に失敗したときは step を label、failed でラベルのあとのコメントに失敗したときは comment、retryable でコメント一覧の取得に失敗したときは list にする。成功は { ok: true } のままにする。src/github/apply-outcome.test.ts で、ラベル更新の失敗は step が label、コメントの失敗は comment であることを、差し替えた gh の結果から観測する。apply-outcome-retry.test.ts の成功の toEqual({ ok: true }) は維持し、一覧取得の失敗は step が list であることを足す。listQueuedIssues と beginRunning の戻り値は変えない。",
       refs: ["GithubIssueState", "FR-015", "FR-017"],
-      status: "todo",
+      status: "done",
     },
     "T-003": {
       title: "作業ブランチの準備を実装する",

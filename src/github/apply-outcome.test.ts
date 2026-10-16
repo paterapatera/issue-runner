@@ -117,3 +117,44 @@ describe("applyOutcome failed comments", () => {
     expect(commentBodies(calls)).toEqual(["起動に失敗した"]);
   });
 });
+
+function ghRunnerFailingOn(argvCommand: string, argvSubcommand: string) {
+  return recordingGhRunner((call) => {
+    if (call.argv[0] === argvCommand && call.argv[1] === argvSubcommand) {
+      return { ok: false };
+    }
+    return { ok: true };
+  }).run;
+}
+
+describe("applyOutcome failed steps", () => {
+  test("label update failure returns step label", async () => {
+    const result = await applyOutcome(
+      "example/app",
+      60,
+      { type: "failed", reason: "失敗" },
+      { run: ghRunnerFailingOn("issue", "edit") },
+    );
+    expect(result).toEqual({ ok: false, step: "label" });
+  });
+
+  test("comment failure returns step comment", async () => {
+    const result = await applyOutcome(
+      "example/app",
+      61,
+      { type: "failed", reason: "失敗" },
+      { run: ghRunnerFailingOn("issue", "comment") },
+    );
+    expect(result).toEqual({ ok: false, step: "comment" });
+  });
+
+  test("done label failure returns step label", async () => {
+    const result = await applyOutcome(
+      "example/app",
+      62,
+      { type: "done" },
+      { run: ghRunnerFailingOn("issue", "edit") },
+    );
+    expect(result).toEqual({ ok: false, step: "label" });
+  });
+});
