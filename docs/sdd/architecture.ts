@@ -3,7 +3,7 @@ import { defineArchitecture } from "./schema/mod.ts";
 // 構成。コードと食い違ったらコードを正とし、こちらを直す。
 // 全部を最初から書き起こさない。大まかに作り、sdd-finish のたびに触った部分を詳しくする。
 export default defineArchitecture({
-  basedOn: "fcd05a4c2d848171b97129f76efdcc1983dfebad",
+  basedOn: "8a4247b1f2d0c60135a2f3922091282a11f5555b",
   updatedAt: "2026-10-16",
   summary:
     "issue-runner は、開発者本人が自分のマシンで動かすローカルプロセスである。設定した1つの GitHub リポジトリの issue をポーリングし、Cursor のエージェントをそのリポジトリのチェックアウトで実行する。利用者は1人で、対象リポジトリは1つである。",
@@ -20,19 +20,20 @@ export default defineArchitecture({
   ],
   modules: {
     main: {
-      path: "src/main.ts",
-      responsibility: "設定を読んで TUI を起動する",
+      path: "src/main/index.ts",
+      responsibility:
+        "API キーと issue-runner.json を順に見て、設定画面か起動画面を出す。終了コードを決める",
       dependsOn: ["config", "tui"],
     },
     config: {
-      path: "src/config.ts",
+      path: "src/config/index.ts",
       responsibility:
-        "監視するリポジトリ（owner/repo）、ローカルのチェックアウト、ポーリング間隔、モデル（既定は composer-2.5）を設定から読む。CURSOR_API_KEY は環境変数から読み、無いときは起動を失敗させる。GitHub の資格情報は読まない",
+        "issue-runner.json の読み書きと、repository、interval、model、assignee、CURSOR_API_KEY の判定。gh からログイン名を取る",
     },
     tui: {
-      path: "src/tui.ts",
+      path: "src/tui/index.ts",
       responsibility:
-        "上段に設定、中段に状態、下段に終了キーを描画する。設定は引数で受け取る",
+        "設定画面と起動画面を @opentui/core で描く。設定の中身は引数で受け取り、config を import しない",
     },
   },
   layers: [
@@ -42,7 +43,7 @@ export default defineArchitecture({
   ],
   notes: [
     "Web の画面は無い。config.ts の ui は false",
-    "GH-1 が作るのは起動、設定、TUI の骨組みである。issue の取得、ラベル更新、エージェントの実行は GH-1 の対象外",
-    "品質ゲートのコマンドは、ツールを導入する基盤 issue で config.ts に登録する",
+    "GH-1 で起動、設定、TUI の骨組みを実装した。issue の取得、ラベル更新、エージェントの実行は別 issue",
+    "品質ゲートのコマンドは docs/sdd/config.ts に登録済み（Biome、bun --check、dependency-cruiser、Knip、jscpd、bun test）",
   ],
 });
