@@ -1,9 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { type GhCall, recordingGhRunner } from "../github/test-fixtures";
+import {
+  commentBodies,
+  type GhCall,
+  labelsFromEdit,
+  recordingGhRunner,
+} from "../github/test-fixtures";
 import { type PrepareWorkBranchInput, prepareWorkBranch } from "./index";
 
 const REPO = "example/app";
+const STATE_LABELS = ["agent:queued", "agent:running", "agent:done", "agent:failed"];
 
 function configText(issueIdPrefix?: string): string {
   if (issueIdPrefix === undefined) {
@@ -196,6 +202,24 @@ function expectCheckout(gitCalls: string[][], branch: string) {
   expect(gitCalls.find((argv) => argv[0] === "checkout")).toEqual(["checkout", branch]);
 }
 
+async function expectFailedPrepare(
+  harnessOptions: HarnessOptions,
+  input: PrepareWorkBranchInput,
+  comment: string,
+) {
+  const harness = createHarness(harnessOptions);
+  const result = await prepareWorkBranch(input, harness.deps);
+  expect(result).toEqual({ ok: false, exitCode: 1 });
+  expect(harness.exitCodes).toEqual([1]);
+  expect(harness.stderrLines).toEqual([comment]);
+  const edit = harness.ghCalls.find((call) => call.argv[1] === "edit");
+  const labels = labelsFromEdit(edit?.argv ?? []);
+  expect(labels.removed).toEqual(STATE_LABELS);
+  expect(labels.added).toEqual(["agent:failed"]);
+  expect(commentBodies(harness.ghCalls)).toEqual([comment]);
+  expect(harness.gitCalls.find((argv) => argv[0] === "checkout")).toBeUndefined();
+}
+
 describe("prepareWorkBranch checkout success", () => {
   test("AC-004 AC-017 checks out the matching remote branch", async () => {
     const { deps, gitCalls, ghCalls, exitCodes } = createHarness({
@@ -285,5 +309,32 @@ describe("prepareWorkBranch branch selection failures", () => {
     const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
     expect(result.ok).toBe(false);
     expect(gitCalls.find((argv) => argv[0] === "checkout")).toBeUndefined();
+  });
+});
+
+describe("prepareWorkBranch failure comments", () => {
+  test.each([
+    ["AC-009", ["main"], "該当する作業ブランチがありません"],
+    ["AC-010", ["gh-3-a", "gh-3-b"], "該当する作業ブランチが複数あります"],
+    ["AC-011", ["main"], "該当する作業ブランチがありません"],
+    ["AC-024", ["main"], "該当する作業ブランチがありません"],
+    ["AC-028", ["main"], "該当する作業ブランチがありません"],
+    ["AC-029", ["gh-3-a", "gh-3-b"], "該当する作業ブランチが複数あります"],
+  ])("%s sets agent:failed and failure comment", async (_ac, branches, comment) => {
+    await expectFailedPrepare(
+      { configText: configText("GH"), remoteBranches: branches },
+      defaultInput({ issueNumber: 3 }),
+      comment,
+    );
+  });
+});
+
+describe("prepareWorkBranch missing config file", () => {
+  test("AC-025 AC-026 AC-027 AC-035 AC-036 AC-037 missing docs/sdd/config.ts", async () => {
+    await expectFailedPrepare(
+      { configMissing: true, remoteBranches: ["111-hogehoge"] },
+      defaultInput({ issueNumber: 111 }),
+      "docs/sdd/config.ts がありません",
+    );
   });
 });

@@ -103,7 +103,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-036",
         "AC-037",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-007": {
       title: "git と GitHub 書き込みの失敗をテストする",
