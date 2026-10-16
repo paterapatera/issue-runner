@@ -338,3 +338,79 @@ describe("prepareWorkBranch missing config file", () => {
     );
   });
 });
+
+const PREPARE_FAILED = "作業ブランチを用意できませんでした";
+
+function assertPrepareFailureOutput(
+  harness: ReturnType<typeof createHarness>,
+  options?: { checkoutBranch?: string },
+) {
+  expect(harness.stderrLines).toEqual([PREPARE_FAILED]);
+  expect(harness.stderrLines.join("\n")).not.toContain("secret-token");
+  if (options?.checkoutBranch !== undefined) {
+    expectCheckout(harness.gitCalls, options.checkoutBranch);
+  } else {
+    expect(harness.gitCalls.find((argv) => argv[0] === "checkout")).toBeUndefined();
+  }
+  expect(commentBodies(harness.ghCalls)).toEqual([PREPARE_FAILED]);
+}
+
+async function expectPrepareGitFailure(harnessOptions: HarnessOptions) {
+  const harness = createHarness({
+    configText: configText("GH"),
+    remoteBranches: ["gh-3-print-date"],
+    ...harnessOptions,
+  });
+  const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), harness.deps);
+  expect(result).toEqual({ ok: false, exitCode: 1 });
+  expect(harness.exitCodes).toEqual([1]);
+  assertPrepareFailureOutput(harness);
+}
+
+describe("prepareWorkBranch git failures", () => {
+  test("AC-038 AC-041 ls-remote failure does not leak git stderr", async () => {
+    await expectPrepareGitFailure({
+      lsRemoteFails: true,
+      gitStderr: "fatal: secret-token leaked",
+    });
+  });
+
+  test("AC-039 checkout failure reports prepare failure", async () => {
+    const harness = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date"],
+      checkoutFails: true,
+      gitStderr: "error: secret-token checkout",
+    });
+    const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), harness.deps);
+    expect(result).toEqual({ ok: false, exitCode: 1 });
+    assertPrepareFailureOutput(harness, { checkoutBranch: "gh-3-print-date" });
+  });
+
+  test("AC-040 config read error uses prepare failure message", async () => {
+    const harness = createHarness({
+      configReadError: true,
+      remoteBranches: ["gh-3-print-date"],
+    });
+    const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), harness.deps);
+    expect(result).toEqual({ ok: false, exitCode: 1 });
+    assertPrepareFailureOutput(harness);
+  });
+});
+
+describe("prepareWorkBranch GitHub write failures", () => {
+  test.each([
+    ["AC-031 AC-032", "edit", "ラベルを更新できませんでした"],
+    ["AC-033 AC-034", "comment", "コメントを付けられませんでした"],
+  ])("%s gh failure stderr", async (_ac, ghStep, message) => {
+    const harness = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["main"],
+      ghHandler: (call) => (call.argv[1] === ghStep ? { ok: false } : { ok: true }),
+    });
+    const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), harness.deps);
+    expect(result).toEqual({ ok: false, exitCode: 1 });
+    expect(harness.stderrLines).toEqual([message]);
+    expect(harness.stderrLines.join("\n")).not.toContain("secret-token");
+  });
+});

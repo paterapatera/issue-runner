@@ -112,7 +112,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/work-branch/index.test.ts に足す。git ls-remote または checkout が失敗したときは checkout 後のブランチに移さず、ラベルは agent:failed だけにし、コメント本文と標準エラーが「作業ブランチを用意できませんでした」の1行で、git の stderr と secret-token を含まず、終了コードが 1 であること（AC-038、AC-039、AC-040、AC-041）。ラベル更新が失敗したときは終了コード 1、標準エラーが「ラベルを更新できませんでした」の1行で、gh の文と secret-token を出さないこと（AC-031、AC-032）。コメント投稿が失敗したときは終了コード 1、標準エラーが「コメントを付けられませんでした」の1行で、gh の文を出さないこと（AC-033、AC-034）。",
       refs: ["FR-015", "FR-016", "FR-017", "FR-018", "FR-020", "FR-021"],
       verifies: ["AC-031", "AC-032", "AC-033", "AC-034", "AC-038", "AC-039", "AC-040", "AC-041"],
-      status: "todo",
+      status: "done",
     },
   },
 });
