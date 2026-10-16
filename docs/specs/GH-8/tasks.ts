@@ -50,7 +50,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/poll/index.ts で、優先度判定の失敗と runSddCycle の失敗を exit(1) する直前に、標準エラーへ書く文字列の長さが 0 のときだけ既存の UNEXPECTED_FAILURE_MESSAGE（予期せぬ失敗が発生しました）を書く。applyOutcome に渡す reason は空文字のまま変えない。1文字以上の理由は標準エラーも失敗コメントもそのままにする。",
       refs: ["FR-003", "startPolling"],
-      status: "todo",
+      status: "done",
     },
     "T-005": {
       title: "startPolling の空理由と失敗コメントをテストする",
