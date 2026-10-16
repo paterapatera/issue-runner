@@ -150,7 +150,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "FR-039",
         "FR-040",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-005": {
       title: "画面の受け入れ条件をテストする",
