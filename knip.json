@@ -2,6 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/main/index.ts",
+    "src/main/login.ts",
     "src/config/index.ts",
     "src/tui/index.ts",
     "src/github/index.ts",
