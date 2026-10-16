@@ -29,6 +29,7 @@ export type CreateRenderer = () => Promise<CliRenderer>;
 
 export type RunMainOptions = {
   createRenderer?: CreateRenderer;
+  onReady?: (handle: { setStatus: (status: string) => void }) => void;
 };
 
 export type RunSettingsOptions = {
@@ -47,7 +48,10 @@ function mainTopLine(view: MainView): string {
   return [view.repository, view.intervalLabel, view.model, view.assignee].join(" ");
 }
 
-function mountMainView(renderer: CliRenderer, view: MainView): void {
+function mountMainView(
+  renderer: CliRenderer,
+  view: MainView,
+): { setStatus: (status: string) => void } {
   const column = new BoxRenderable(renderer, {
     flexDirection: "column",
     width: "100%",
@@ -55,9 +59,15 @@ function mountMainView(renderer: CliRenderer, view: MainView): void {
   });
   const textOptions = { wrapMode: "char" as const, width: "100%" as const };
   column.add(new TextRenderable(renderer, { ...textOptions, content: mainTopLine(view) }));
-  column.add(new TextRenderable(renderer, { ...textOptions, content: view.status }));
+  const statusText = new TextRenderable(renderer, { ...textOptions, content: view.status });
+  column.add(statusText);
   column.add(new TextRenderable(renderer, { ...textOptions, content: view.quitKey }));
   renderer.root.add(column);
+  return {
+    setStatus: (status) => {
+      statusText.content = status;
+    },
+  };
 }
 
 function settingsRow(
@@ -165,7 +175,8 @@ export async function runMain(view: MainView, options?: RunMainOptions): Promise
       settled = true;
       void finishRenderer(renderer).then(() => resolve("quit"));
     };
-    mountMainView(renderer, view);
+    const { setStatus } = mountMainView(renderer, view);
+    options?.onReady?.({ setStatus });
     renderer.root.focusable = true;
     renderer.root.focus();
     renderer.root.onKeyDown = (key) => {

@@ -45,7 +45,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/tui/index.ts の runMain に、省ける onReady を足す。画面を描いたあと、onReady に setStatus を渡す。setStatus はその場の状態文言を書き換える。onReady が無い呼び出しは、渡された status を1回描く今の動作のままにする。上段の設定と下段の終了キー q は変えない。",
       refs: ["FR-008", "MainScreen"],
-      status: "todo",
+      status: "doing",
     },
     "T-006": {
       title: "実行中と待機中の表示をテストする",
