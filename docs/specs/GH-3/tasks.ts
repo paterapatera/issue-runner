@@ -50,7 +50,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "FR-020",
         "FR-021",
       ],
-      status: "doing",
+      status: "done",
     },
     "T-004": {
       title: "spec 名の決定をテストする",
@@ -59,7 +59,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "src/work-branch/index.test.ts で prepareWorkBranch を呼ぶ。gh、git、readText、writeStderr、exit は差し替え、品質ゲートや依存関係の導入は呼ばない。issue 番号 3 と issueIdPrefix が GH のとき spec 名が GH-3 であること（AC-001）。作業ブランチ側の設定が違っても切り替える前の GH を使うこと（AC-014）。前後の空白を除いた GH で GH-3 になること（AC-020）。起動ディレクトリの設定だけを読むこと（AC-022）。接頭辞が無い、空、空白だけのときは spec 名が issue 番号のままであること（AC-002、AC-016、AC-018、AC-019）。origin に 111-hogehoge が1つあるときは、その短名を checkout し、エージェント起動の関数は呼ばれないこと（AC-003）。",
       refs: ["FR-001", "FR-002", "FR-003"],
       verifies: ["AC-001", "AC-014", "AC-020", "AC-022", "AC-002", "AC-016", "AC-018", "AC-019", "AC-003"],
-      status: "todo",
+      status: "done",
     },
     "T-005": {
       title: "ブランチの選択と成功時の状態をテストする",
