@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTestRenderer } from "@opentui/core/testing";
+import * as agent from "../agent/index.ts";
+import * as github from "../github/index.ts";
 import {
   API_KEY,
   CONFIG_NAME,
@@ -117,12 +119,22 @@ async function focusAssigneeField(setup: RendererSetup): Promise<void> {
   await flushInput(setup);
 }
 
-async function runValidMainAndQuit(quit: (setup: RendererSetup) => void): Promise<void> {
+async function startValidMainRun(): Promise<{
+  harness: TuiHarness;
+  runPromise: Promise<number>;
+  setup: RendererSetup;
+  frame: string;
+}> {
   const dir = await createMainTempDir();
   await writeConfigJson(dir, validFile);
   const harness = fixedHarness();
   const runPromise = run({ deps: baseDeps(dir, harness) });
-  const { setup } = await waitForFrame(harness, isMainFrame);
+  const { setup, frame } = await waitForFrame(harness, isMainFrame);
+  return { harness, runPromise, setup, frame };
+}
+
+async function runValidMainAndQuit(quit: (setup: RendererSetup) => void): Promise<void> {
+  const { runPromise, setup } = await startValidMainRun();
   quit(setup);
   expect(await runPromise).toBe(0);
 }
@@ -351,13 +363,24 @@ describe("run invalid config opens settings not main", () => {
   });
 });
 
+describe("run without startPolling", () => {
+  test("INV-001 shows 待機中 without listRunningIssues or runSddCycle", async () => {
+    const listRunningIssues = spyOn(github, "listRunningIssues");
+    const runSddCycle = spyOn(agent, "runSddCycle");
+    const { frame, runPromise, setup } = await startValidMainRun();
+    expect(frame.includes("待機中")).toBe(true);
+    setup.mockInput.pressKey("q");
+    expect(await runPromise).toBe(0);
+    expect(listRunningIssues).not.toHaveBeenCalled();
+    expect(runSddCycle).not.toHaveBeenCalled();
+    listRunningIssues.mockRestore();
+    runSddCycle.mockRestore();
+  });
+});
+
 describe("run valid config main screen BNFR-001", () => {
   test("AC-005 AC-103 BNFR-001 layout and q exits 0", async () => {
-    const dir = await createMainTempDir();
-    await writeConfigJson(dir, validFile);
-    const harness = fixedHarness();
-    const runPromise = run({ deps: baseDeps(dir, harness) });
-    const { frame, setup } = await waitForFrame(harness, isMainFrame);
+    const { frame, runPromise, setup } = await startValidMainRun();
     expectValidMainHeader(frame);
     assertNoSecrets(frame, API_KEY);
     setup.mockInput.pressKey("q");

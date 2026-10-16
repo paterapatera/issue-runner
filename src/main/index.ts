@@ -1,6 +1,17 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { Agent } from "@cursor/sdk";
+import type { CreateAgentOptions } from "../agent/index";
 import { type AppConfig, loadStartup, type SettingsDraft, saveConfig } from "../config/index";
+import { defaultGhRunner } from "../github/index";
+import { type StartPollingDeps, startPolling } from "../poll/index";
 import { type CreateRenderer, type RunSettingsOptions, runMain, runSettings } from "../tui/index";
+import type { GitRunner, ReadTextResult } from "../work-branch/index";
+
+export type BuildPollingDeps = (
+  setStatus: (status: "待機中" | "実行中") => void,
+) => StartPollingDeps;
 
 export type RunDeps = {
   cwd: string;
@@ -8,6 +19,8 @@ export type RunDeps = {
   ghLogin: () => Promise<string | undefined>;
   createRenderer?: CreateRenderer;
   onSettingsReady?: RunSettingsOptions["onReady"];
+  startPolling?: typeof startPolling;
+  buildPollingDeps?: BuildPollingDeps;
 };
 
 function tuiOptions(createRenderer?: CreateRenderer) {
@@ -27,6 +40,90 @@ function mainViewFromConfig(config: AppConfig) {
     status: "待機中",
     quitKey: "q",
   };
+}
+
+function spawnGit(cwd: string): GitRunner {
+  return (argv) =>
+    new Promise((resolve) => {
+      const child = spawn("git", argv, {
+        cwd,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout?.on("data", (chunk: Buffer | string) => {
+        stdout += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk: Buffer | string) => {
+        stderr += chunk.toString();
+      });
+      child.on("error", () => resolve({ ok: false, stderr }));
+      child.on("close", (code) => {
+        if (code !== 0) {
+          resolve({ ok: false, stderr });
+          return;
+        }
+        resolve({ ok: true, stdout });
+      });
+    });
+}
+
+async function readTextFile(path: string): Promise<ReadTextResult> {
+  try {
+    const text = await readFile(path, "utf8");
+    return { ok: true, text };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return { ok: false, missing: true };
+    }
+    return { ok: false, missing: false };
+  }
+}
+
+function sdkCreateAgent(apiKey: string) {
+  return async (options: CreateAgentOptions) => {
+    const agent = await Agent.create({
+      apiKey,
+      model: { id: options.modelId },
+      local: { cwd: options.cwd, settingSources: [...options.settingSources] },
+    });
+    return {
+      send: async (message: string) => {
+        const run = await agent.send(message);
+        return {
+          wait: async () => {
+            const result = await run.wait();
+            return {
+              status: result.status,
+              result: result.result,
+              error: result.error === undefined ? undefined : { message: result.error.message },
+            };
+          },
+        };
+      },
+    };
+  };
+}
+
+export function createProductionPollingDeps(cwd: string, apiKey: string): BuildPollingDeps {
+  return (setStatus) => ({
+    gh: defaultGhRunner,
+    git: spawnGit(cwd),
+    readText: readTextFile,
+    createAgent: sdkCreateAgent(apiKey),
+    newRunId: () => randomUUID(),
+    writeStderr: (line) => {
+      process.stderr.write(line.endsWith("\n") ? line : `${line}\n`);
+    },
+    exit: (code) => {
+      process.exit(code);
+    },
+    setStatus,
+    schedule: (delayMs, run) => {
+      setInterval(run, delayMs);
+    },
+  });
 }
 
 export async function fetchGhLogin(): Promise<string | undefined> {
@@ -57,20 +154,44 @@ function resolveDeps(options?: RunOptions): RunDeps {
     ghLogin: options?.deps?.ghLogin ?? fetchGhLogin,
     createRenderer: options?.deps?.createRenderer,
     onSettingsReady: options?.deps?.onSettingsReady,
+    startPolling: options?.deps?.startPolling,
+    buildPollingDeps: options?.deps?.buildPollingDeps,
   };
 }
 
-async function runMainScreen(config: AppConfig, createRenderer?: CreateRenderer): Promise<number> {
-  await runMain(mainViewFromConfig(config), tuiOptions(createRenderer));
+async function runMainScreen(
+  config: AppConfig,
+  deps: RunDeps,
+  createRenderer?: CreateRenderer,
+): Promise<number> {
+  const poll = deps.startPolling;
+  const buildPollingDeps = deps.buildPollingDeps;
+  await runMain(mainViewFromConfig(config), {
+    ...tuiOptions(createRenderer),
+    onReady:
+      poll !== undefined && buildPollingDeps !== undefined
+        ? ({ setStatus }) => {
+            void poll(
+              {
+                repository: config.repository,
+                assignee: config.assignee,
+                cwd: deps.cwd,
+                intervalMinutes: config.interval,
+              },
+              buildPollingDeps(setStatus),
+            );
+          }
+        : undefined,
+  });
   return 0;
 }
 
 async function runSettingsFlow(
-  cwd: string,
+  deps: RunDeps,
   draft: SettingsDraft,
   createRenderer?: CreateRenderer,
-  onSettingsReady?: RunSettingsOptions["onReady"],
 ): Promise<number> {
+  const { cwd, onSettingsReady } = deps;
   let savedConfig: AppConfig | undefined;
   const result = await runSettings(
     draft,
@@ -94,11 +215,12 @@ async function runSettingsFlow(
   if (savedConfig === undefined) {
     return 1;
   }
-  return runMainScreen(savedConfig, createRenderer);
+  return runMainScreen(savedConfig, deps, createRenderer);
 }
 
 export async function run(options?: RunOptions): Promise<number> {
-  const { cwd, env, ghLogin, createRenderer, onSettingsReady } = resolveDeps(options);
+  const deps = resolveDeps(options);
+  const { cwd, env, ghLogin, createRenderer } = deps;
   const startup = await loadStartup(cwd, env, ghLogin);
 
   if (startup.kind === "exit") {
@@ -109,13 +231,19 @@ export async function run(options?: RunOptions): Promise<number> {
   }
 
   if (startup.kind === "settings") {
-    return runSettingsFlow(cwd, startup.draft, createRenderer, onSettingsReady);
+    return runSettingsFlow(deps, startup.draft, createRenderer);
   }
 
-  return runMainScreen(startup.config, createRenderer);
+  return runMainScreen(startup.config, deps, createRenderer);
 }
 
 if (import.meta.main) {
-  const code = await run();
+  const apiKey = process.env.CURSOR_API_KEY ?? "";
+  const code = await run({
+    deps: {
+      startPolling,
+      buildPollingDeps: createProductionPollingDeps(process.cwd(), apiKey),
+    },
+  });
   process.exit(code);
 }

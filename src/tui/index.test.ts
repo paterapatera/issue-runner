@@ -226,6 +226,40 @@ describe("runMain default layout", () => {
   });
 });
 
+describe("runMain status updates", () => {
+  test("AC-020 AC-021 shows 待機中 then 実行中 with settings and quit key", async () => {
+    let setup: RendererSetup | undefined;
+    let setStatus: ((status: string) => void) | undefined;
+    const createRenderer: CreateRenderer = async () => {
+      setup = await createTestRenderer({ width: 80, height: 24, exitOnCtrlC: false });
+      return setup.renderer;
+    };
+    const runPromise = runMain(defaultMainView(), {
+      createRenderer,
+      onReady: ({ setStatus: update }) => {
+        setStatus = update;
+      },
+    });
+    const ready = await waitForSetup(() => setup);
+    await ready.flush();
+    const initialFrame = ready.captureCharFrame();
+    expectFullyVisible(initialFrame, "待機中");
+    expectValidMainHeader(initialFrame);
+
+    setStatus?.("実行中");
+    await ready.flush();
+    const runningFrame = ready.captureCharFrame();
+    expectFullyVisible(runningFrame, "実行中");
+    expect(runningFrame.includes("q")).toBe(true);
+    expect(runningFrame.includes("acme/widgets")).toBe(true);
+    expect(runningFrame.includes("octocat")).toBe(true);
+
+    ready.mockInput.pressKey("q");
+    await ready.flush();
+    await runPromise;
+  });
+});
+
 describe("runSettings rendering", () => {
   test("Ctrl+C cancels the form", async () => {
     const harness = createSettingsTestHarness();
