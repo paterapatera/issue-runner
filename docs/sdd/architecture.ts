@@ -46,6 +46,12 @@ export default defineArchitecture({
         "起動ディレクトリの docs/sdd/config.ts を読み spec 名を決め、origin の該当ブランチが1件のとき git checkout する。失敗時は applyOutcome で agent:failed とコメントを付け、標準エラーは決めた日本語1行。起動経路からは呼ばない",
       dependsOn: ["github"],
     },
+    agent: {
+      path: "src/agent/index.ts",
+      responsibility:
+        "listQueuedIssues の先頭1件を local agent で /sdd-impl する。判断用の別エージェントで完了か質問かを JSON で分け、質問には composer-2.5（fast なし）で回答して同じエージェントへ送る。起動失敗と実行中失敗は標準エラー1行と終了コード 1。起動経路からは呼ばない",
+      dependsOn: ["github"],
+    },
   },
   layers: [
     { name: "config", rule: "main と tui に依存しない。環境変数と設定ファイルだけを読む" },
@@ -59,12 +65,17 @@ export default defineArchitecture({
       name: "work-branch",
       rule: "main・config・tui に依存しない。git は git コマンドのみ。ラベルとコメントは github の applyOutcome に任せる",
     },
+    {
+      name: "agent",
+      rule: "main・config・tui に依存しない。GitHub の列挙は github の listQueuedIssues。SDK 実行は注入可能な createAgent。ラベルと作業ブランチの準備は呼ばない",
+    },
   ],
   notes: [
     "Web の画面は無い。config.ts の ui は false",
     "GH-1 で起動、設定、TUI の骨組みを実装した",
     "GH-2 で src/github にラベル遷移を実装した。ポーリングとエージェント実行の接続は別 issue",
     "GH-3 で src/work-branch に作業ブランチの準備（prepareWorkBranch）を実装した。起動経路からは呼ばない",
+    "GH-4 で src/agent に local agent の pollOnce を実装した。/sdd-finish は送らない。起動経路からは呼ばない",
     "品質ゲートのコマンドは docs/sdd/config.ts に登録済み（Biome、bun --check、dependency-cruiser、Knip、jscpd、bun test）",
   ],
 });
