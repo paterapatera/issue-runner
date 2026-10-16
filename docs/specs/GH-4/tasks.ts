@@ -93,7 +93,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-041",
         "AC-042",
       ],
-      status: "todo",
+      status: "done",
     },
   },
 });
