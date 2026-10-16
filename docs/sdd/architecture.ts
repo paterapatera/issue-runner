@@ -35,15 +35,25 @@ export default defineArchitecture({
       responsibility:
         "設定画面と起動画面を @opentui/core で描く。設定の中身は引数で受け取り、config を import しない",
     },
+    github: {
+      path: "src/github/index.ts",
+      responsibility:
+        "issue-runner.json の repository と assignee を引数で受け、gh で agent:* ラベルの列挙・付け替えと実行 ID・失敗理由のコメントを行う。起動経路からはまだ呼ばない",
+    },
   },
   layers: [
     { name: "config", rule: "main と tui に依存しない。環境変数と設定ファイルだけを読む" },
     { name: "tui", rule: "config を import しない。@opentui/core を import できるのはこのモジュールだけ" },
     { name: "main", rule: "config と tui を組み立てて起動する" },
+    {
+      name: "github",
+      rule: "main・config・tui に依存しない。GitHub 操作は gh CLI のみ。呼び出し側が repository と assignee を渡す",
+    },
   ],
   notes: [
     "Web の画面は無い。config.ts の ui は false",
-    "GH-1 で起動、設定、TUI の骨組みを実装した。issue の取得、ラベル更新、エージェントの実行は別 issue",
+    "GH-1 で起動、設定、TUI の骨組みを実装した",
+    "GH-2 で src/github にラベル遷移を実装した。ポーリングとエージェント実行の接続は別 issue",
     "品質ゲートのコマンドは docs/sdd/config.ts に登録済み（Biome、bun --check、dependency-cruiser、Knip、jscpd、bun test）",
   ],
 });
