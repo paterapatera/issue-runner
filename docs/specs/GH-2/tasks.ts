@@ -74,6 +74,10 @@ export default defineTasks<typeof requirements, typeof design>()({
       { run: "bun install", note: "依存関係を揃える" },
       { run: "bun test", note: "自動テストでラベル遷移を確かめる" },
       { run: "gh auth status", note: "GitHub CLI にログインしていること" },
+      {
+        run: "test -f issue-runner.json",
+        note: "リポジトリのルートに issue-runner.json があること（repository は owner/repo 形式）",
+      },
     ],
     accounts: [],
     data: [
@@ -92,7 +96,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       },
     ],
     notes: [
-      "repository は GH_ACCEPTANCE_REPO、issue-runner.json の repository、または現在の git リポジトリの順で決まる",
+      "対象リポジトリは issue-runner.json の repository だけを使う（環境変数や git の origin は見ない）",
       "agent:* ラベルが無い場合は acceptance-human.ts が作成する",
     ],
   },

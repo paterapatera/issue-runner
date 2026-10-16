@@ -4,27 +4,24 @@ import { beginRunning, defaultGhRunner } from "../../../src/github/index.ts";
 const RUN_ID = "2f1c0c3e-7b4a-4d1e-9a6b-0c5d8e7f1a2b";
 const STATE_LABELS = ["agent:queued", "agent:running", "agent:done", "agent:failed"];
 
-function loadRepository(): string {
-  const fromEnv = process.env.GH_ACCEPTANCE_REPO;
-  if (fromEnv !== undefined && fromEnv.length > 0) {
-    return fromEnv;
-  }
+function loadRepositoryFromConfig(): string {
+  let raw: string;
   try {
-    const config = JSON.parse(readFileSync("issue-runner.json", "utf8")) as { repository?: string };
-    if (config.repository !== undefined && config.repository.length > 0) {
-      return config.repository;
-    }
+    raw = readFileSync("issue-runner.json", "utf8");
   } catch {
-    // fall through
+    throw new Error("issue-runner.json がありません。リポジトリのルートに置き、repository を書いてください");
   }
-  const { stdout, exitCode } = Bun.spawnSync(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
-  if (exitCode === 0) {
-    const repo = stdout.toString().trim();
-    if (repo.length > 0) {
-      return repo;
-    }
+  let config: { repository?: string };
+  try {
+    config = JSON.parse(raw) as { repository?: string };
+  } catch {
+    throw new Error("issue-runner.json を読めません");
   }
-  throw new Error("repository を GH_ACCEPTANCE_REPO、issue-runner.json、または git の origin から決められません");
+  const repository = config.repository?.trim() ?? "";
+  if (repository.length === 0 || !repository.includes("/")) {
+    throw new Error("issue-runner.json の repository が空、または owner/repo 形式ではありません");
+  }
+  return repository;
 }
 
 async function ghJson(argv: string[]): Promise<unknown> {
@@ -54,7 +51,7 @@ async function ensureLabels(repository: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const repository = loadRepository();
+  const repository = loadRepositoryFromConfig();
   await ensureLabels(repository);
 
   const create = await ghJson([
