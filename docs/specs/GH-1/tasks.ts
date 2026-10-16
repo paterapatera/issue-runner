@@ -191,7 +191,7 @@ export default defineTasks<typeof requirements, typeof design>()({
       description:
         "src/main/index.ts が loadStartup を呼び、kind: 'exit' ならその code で終了する。kind: 'settings' なら runSettings を出す。submit は saveConfig を呼ぶ。成功したら runMain に進む。失敗したらメッセージを設定画面に残す。Ctrl+C の cancel はファイルを書かず終了コード 0。kind: 'main' なら runMain を出す。q と Ctrl+C は終了コード 0。gh のログイン名は gh api user --jq .login の実行結果を loadStartup に渡す。失敗したら undefined。",
       refs: ["main", "FR-006", "FR-008", "FR-010", "FR-011"],
-      status: "todo",
+      status: "done",
     },
     "T-007": {
       title: "起動と終了の受け入れ条件をテストする",
