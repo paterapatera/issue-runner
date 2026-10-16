@@ -5,6 +5,8 @@ import {
   commentBodies,
   createPollHarness,
   dualPriorityQueuedState,
+  emptyErrorOnImplScript,
+  emptyErrorOnPriorityScript,
   failGhWhenMarkingFailed,
   judgmentScript,
   labelsFromEdit,
@@ -315,14 +317,49 @@ describe("startPolling priority tie and errors", () => {
   });
 });
 
+const UNEXPECTED_FAILURE = "予期せぬ失敗が発生しました";
+
+async function runPollingHarnessTick(harness: ReturnType<typeof createPollHarness>): Promise<void> {
+  await startPolling(harness.input, harness.deps);
+  await runScheduledTick(harness);
+}
+
+function expectUnexpectedStderrExit(harness: ReturnType<typeof createPollHarness>): void {
+  expect(harness.stderr).toEqual([UNEXPECTED_FAILURE]);
+  expect(harness.exitCodes).toEqual([1]);
+}
+
 describe("startPolling run errors", () => {
+  test("AC-008 empty priority error message exits 1 with unexpected failure line", async () => {
+    const harness = createPollHarness({
+      ghState: dualPriorityQueuedState(),
+      script: emptyErrorOnPriorityScript(),
+    });
+    await runPollingHarnessTick(harness);
+    expectUnexpectedStderrExit(harness);
+    expect(commentBodies(harness.ghCalls)).toHaveLength(0);
+  });
+
+  test("AC-008 empty sdd cycle error exits 1 with unexpected stderr and empty failed reason", async () => {
+    const harness = createPollHarness({
+      ghState: { queued: [queuedIssue({ number: 7 })], running: [], comments: {} },
+      script: emptyErrorOnImplScript(),
+    });
+    await runPollingHarnessTick(harness);
+    expect(sddPrompts(harness.agents)).toEqual(["/sdd-impl"]);
+    expectUnexpectedStderrExit(harness);
+    expect(lastAddedLabel(harness.ghCalls, 7)).toBe("agent:failed");
+    const bodies = commentBodies(harness.ghCalls);
+    expect(bodies).toContain(UNEXPECTED_FAILURE);
+    expect(bodies.filter((body) => body === UNEXPECTED_FAILURE)).toHaveLength(1);
+  });
+
   test("AC-013 tool failed marks failed exits 1 without finish", async () => {
     const harness = createPollHarness({
       ghState: { queued: [queuedIssue({ number: 7 })], running: [], comments: {} },
       script: toolFailedOnImplScript(),
     });
-    await startPolling(harness.input, harness.deps);
-    await runScheduledTick(harness);
+    await runPollingHarnessTick(harness);
     expect(sddPrompts(harness.agents)).toEqual(["/sdd-impl"]);
     expect(harness.stderr).toEqual(["tool failed"]);
     expect(harness.exitCodes).toEqual([1]);
