@@ -230,29 +230,25 @@ export default defineTasks<typeof requirements, typeof design>()({
     accounts: [],
     data: [
       {
-        acs: ["AC-005", "AC-008"],
+        acs: ["AC-001", "AC-005"],
         run:
           "mkdir -p /tmp/issue-runner-acceptance && printf '%s\\n' '{\"repository\":\"acme/widgets\",\"assignee\":\"octocat\",\"interval\":2,\"model\":\"composer-2.5\"}' > /tmp/issue-runner-acceptance/issue-runner.json",
-        expect: "/tmp/issue-runner-acceptance/issue-runner.json が有効な設定である",
+        expect:
+          "カレント /tmp/issue-runner-acceptance に issue-runner.json が1件あり、repository が acme/widgets、assignee が octocat、interval が 2、model が composer-2.5",
       },
     ],
-    server: {
-      run:
-        "bun -e \"Bun.serve({ hostname: '127.0.0.1', port: 8765, fetch() { return new Response('issue-runner acceptance ok'); } })\"",
-      url: "http://127.0.0.1:8765",
-      timeoutSec: 30,
-    },
     check: [
       {
-        url: "http://127.0.0.1:8765",
-        contains: "issue-runner acceptance ok",
-        note: "自動確認用スタブ。TUI の操作確認は notes の手順に従う",
+        url: "file:///tmp/issue-runner-acceptance/issue-runner.json",
+        contains: "acme/widgets",
+        note: "data の1件目実行後に JSON が書かれていることの目安（TUI 操作は notes）",
       },
     ],
     notes: [
-      "環境変数 CURSOR_API_KEY に有効なキーを設定する（値は画面に出さない）。",
-      "cd /tmp/issue-runner-acceptance のうえで bun src/main/index.ts を起動し、上段・中段「待機中」・下段 q を確かめ、q または Ctrl+C で終了コード 0 になることを見る（BNFR-001）。",
-      "issue-runner.json を削除した状態では設定画面が開き、項目を入力して Enter のあと起動画面に進むことを確かめる。",
+      "環境変数 CURSOR_API_KEY にテスト用の非空の値を設定する（画面・ログに値は出さない）。",
+      "cd /tmp/issue-runner-acceptance で bun src/main/index.ts を起動し、上段に acme/widgets・2分・composer-2.5・octocat、中段に「待機中」、下段に q が見えることを確かめる。q または Ctrl+C で終了コード 0（BNFR-001）。",
+      "rm -f /tmp/issue-runner-acceptance/issue-runner.json のあと同じ手順で起動し、設定画面で repository=acme/widgets、interval=2、model=composer-2.5、assignee=octocat を入力して Enter 後、起動画面に進むことを確かめる（AC-005、AC-008）。設定画面の Ctrl+C はファイルを書かず終了コード 0。",
+      "CURSOR_API_KEY を未設定で起動し、TUI が出ず終了コード 1 になることを確かめる（AC-004）。",
     ],
   },
 });

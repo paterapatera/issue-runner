@@ -1,2 +1,3 @@
 # SDD: 人向けのHTMLの出力先
 .sdd/
+node_modules/
