@@ -81,7 +81,7 @@ export default defineTasks<typeof requirements, typeof design>()({
         "AC-015",
         "AC-030",
       ],
-      status: "todo",
+      status: "done",
     },
     "T-006": {
       title: "失敗時のラベルとコメントと終了をテストする",

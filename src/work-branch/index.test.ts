@@ -191,3 +191,99 @@ describe("prepareWorkBranch spec name without prefix", () => {
     expect(ghCalls.length).toBe(0);
   });
 });
+
+function expectCheckout(gitCalls: string[][], branch: string) {
+  expect(gitCalls.find((argv) => argv[0] === "checkout")).toEqual(["checkout", branch]);
+}
+
+describe("prepareWorkBranch checkout success", () => {
+  test("AC-004 AC-017 checks out the matching remote branch", async () => {
+    const { deps, gitCalls, ghCalls, exitCodes } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "main"],
+    });
+    const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
+    expect(result).toEqual({ ok: true, specName: "GH-3", branch: "gh-3-print-date" });
+    expectCheckout(gitCalls, "gh-3-print-date");
+    expect(ghCalls.length).toBe(0);
+    expect(exitCodes.length).toBe(0);
+  });
+
+  test("AC-005 ignores gh-30-other when selecting gh-3-print-date", async () => {
+    const { deps, gitCalls } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "gh-30-other"],
+    });
+    await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
+    expectCheckout(gitCalls, "gh-3-print-date");
+  });
+
+  test("AC-021 checks out in startup cwd", async () => {
+    const { deps, gitCalls, cwd } = createHarness({
+      cwd: "/repo",
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "main"],
+    });
+    await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
+    expect(cwd).toBe("/repo");
+    expect(gitCalls[0]).toEqual(["ls-remote", "--heads", "origin"]);
+    expectCheckout(gitCalls, "gh-3-print-date");
+  });
+
+  test("AC-023 counts only origin heads from ls-remote", async () => {
+    const { deps, gitCalls } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "main"],
+    });
+    await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
+    expectCheckout(gitCalls, "gh-3-print-date");
+  });
+
+  test("AC-012 ignores slug in issue body", async () => {
+    const { deps, gitCalls } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "feature-from-issue"],
+    });
+    await prepareWorkBranch(defaultInput({ issueNumber: 3, body: "feature-from-issue" }), deps);
+    expectCheckout(gitCalls, "gh-3-print-date");
+  });
+
+  test("AC-013 checks out with empty title and body", async () => {
+    const { deps, gitCalls } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "main"],
+    });
+    await prepareWorkBranch(defaultInput({ issueNumber: 3, title: "", body: "" }), deps);
+    expectCheckout(gitCalls, "gh-3-print-date");
+  });
+});
+
+describe("prepareWorkBranch success side effects", () => {
+  test("AC-015 AC-030 success leaves GitHub unchanged", async () => {
+    const { deps, ghCalls, exitCodes, stderrLines } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: ["gh-3-print-date", "main"],
+    });
+    const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
+    expect(result.ok).toBe(true);
+    expect(ghCalls.length).toBe(0);
+    expect(exitCodes.length).toBe(0);
+    expect(stderrLines.length).toBe(0);
+  });
+});
+
+describe("prepareWorkBranch branch selection failures", () => {
+  test.each([
+    ["AC-006", ["main"]],
+    ["AC-007", ["gh-3-a", "gh-3-b"]],
+    ["AC-008", ["main"]],
+  ])("%s does not checkout when matches are not exactly one", async (_ac, branches) => {
+    const { deps, gitCalls } = createHarness({
+      configText: configText("GH"),
+      remoteBranches: branches,
+    });
+    const result = await prepareWorkBranch(defaultInput({ issueNumber: 3 }), deps);
+    expect(result.ok).toBe(false);
+    expect(gitCalls.find((argv) => argv[0] === "checkout")).toBeUndefined();
+  });
+});
