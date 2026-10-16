@@ -120,10 +120,12 @@ export default defineDesign<typeof requirements>()({
       "src/config/index.test.ts",
       "src/main/index.ts",
       "src/main/index.test.ts",
+      "src/main/login.test.ts",
       "src/agent/index.ts",
       "src/agent/poll-once-failures.test.ts",
       "src/poll/index.ts",
       "src/poll/index.test.ts",
+      "src/poll/test-fixtures.ts",
     ],
   },
   decisions: [

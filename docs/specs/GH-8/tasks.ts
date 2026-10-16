@@ -79,4 +79,30 @@ export default defineTasks<typeof requirements, typeof design>()({
       status: "done",
     },
   },
+  acceptanceGuide: {
+    setup: [{ run: "bun install", note: "依存関係を揃える" }],
+    accounts: [],
+    data: [
+      {
+        acs: ["AC-004"],
+        run: 'mkdir -p .sdd/acceptance/GH-8 && printf "%s" "<!DOCTYPE html><html lang=\"ja\"><body><h1>AC-004</h1><ol><li>一時ディレクトリを作り、有効な issue-runner.json を置く</li><li>環境変数 CURSOR_API_KEY を unset にし、SDK 認証ファイルも無い状態にする</li><li><code>bun src/main/index.ts</code> をそのディレクトリで実行する</li><li>設定画面・起動画面（待機中）が出ず、終了コード 1 である</li><li>標準エラーが「Cursor にログインするか、環境変数 CURSOR_API_KEY を設定してください」の1行である</li></ol></body></html>" > .sdd/acceptance/GH-8/index.html',
+        expect: "受け入れ手順 HTML が .sdd/acceptance/GH-8/index.html にある",
+      },
+    ],
+    server: {
+      run: "python3 -m http.server 9876 --bind 127.0.0.1 --directory .sdd/acceptance/GH-8",
+      url: "http://127.0.0.1:9876/",
+      timeoutSec: 15,
+    },
+    check: [
+      {
+        url: "http://127.0.0.1:9876/",
+        contains: "AC-004",
+        note: "手順ページを開き、AC-004 を目視で確認する",
+      },
+    ],
+    notes: [
+      "TUI の有無は自動テスト（src/main/index.test.ts）でも固定している。受け入れでは実機で同じ起動を試す。",
+    ],
+  },
 });
